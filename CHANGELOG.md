@@ -1,6 +1,6 @@
 # 바뀐 것
 
-ai-sub-ko 버전마다 바뀐 것. 맨 위 제목이 다음 릴리즈 버전이어야 `make ai-sub-ko-publish` 가 진행됩니다 (lipi 저장소 `Scripts/ai-sub-ko-release.sh`). 이 내용이 GitHub Release 노트가 됩니다.
+ai-sub-ko 버전마다 바뀐 것. 맨 위 제목이 다음 릴리즈 버전이어야 `make publish` 가 진행됩니다 (`scripts/release.sh`). 이 내용이 GitHub Release 노트가 됩니다. 0.x 는 이 저장소 이전 기록입니다.
 
 ## 1.0.0
 - **음성 번역**: 영어 자막이 없는 영상도 탭 소리를 받아 적어 한국어 자막으로 보여 줍니다. 원문은 **영어 · 일본어**.
