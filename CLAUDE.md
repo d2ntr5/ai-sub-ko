@@ -1,6 +1,16 @@
 # ai-sub-ko 작업 규칙
 
-2026-11-11 `d2ntr5/3rd-party-tool` 에서 lipi 저장소 하위 폴더로 옮겼다 (이력 보존). 버전 · CHANGELOG 는 Lipi 앱과 따로(`manifest.json` · `ai-sub-ko/CHANGELOG.md`), 릴리즈는 저장소 맨 위의 `make ai-sub-ko-publish VERSION=x.y.z` — 사용자가 지시할 때만.
+**공개 저장소** `d2ntr5/ai-sub-ko` (2026-11-11 새로 시작, 1.0 대만. 0.x 이력은 옮기지 않음 — 0.x 는 비공개 `d2ntr5/lipi` 의 `ai-sub-ko/` · `d2ntr5/3rd-party-tool`). 사용자 결정: 「ai-sub-ko는 1.0 대 신규만 올린다」, 「소스 공개로 가자」, 크롬 웹 스토어 **공개** 게시.
+
+## 공개 저장소 규칙
+- 비밀 · 개인 정보를 커밋하지 않는다: API 키(시험은 `sk-ant-test` 같은 가짜 값만), 메일 주소, 내부 IP · 호스트 이름, NAS · 내 맥 경로(`/Users/...`), 회사 이름, 비공개 Artifact 링크.
+- 문서는 공개 사용자가 읽는다고 보고 쓴다. 내부 작업 기록(어느 맥에서 시험했는지 등)은 넣지 않는다.
+- 라이선스는 사용자가 정할 때까지 넣지 않는다.
+
+## 빌드 · 릴리즈
+- 테스트 `make test`(= `node --test`), 묶기 `make dist VERSION=x.y.z` → `build/ai-sub-ko-x.y.z.zip`(직접 설치용) · `build/ai-sub-ko-x.y.z-store.zip`(크롬 웹 스토어용, manifest 가 맨 위), 릴리즈 `make publish VERSION=x.y.z` → 이 저장소 Release `vx.y.z`. **릴리즈 · 스토어 제출은 사용자가 지시할 때만.**
+- 크롬 웹 스토어 게시자 계정은 사용자 것이다. 업로드 · 검토 제출 · 결제 · 동의는 사용자가 직접 한다. 스토어 자료는 `store/`.
+- 버전 · 바뀐 점은 `manifest.json` · `CHANGELOG.md`.
 
 Chrome 확장 (Manifest V3, 빌드 단계 없는 순수 JS, **macOS 전용**). F1 TV · YouTube · 강의 사이트의 영어 자막 → Claude · Gemini 3.5 Flash Lite · 크롬 내장 번역 → 한국어 자막. 사용자 설명서·구조는 `README.md`.
 
@@ -22,12 +32,14 @@ Chrome 확장 (Manifest V3, 빌드 단계 없는 순수 JS, **macOS 전용**). F
 
 ## 코드 규칙
 
-- 순수 로직은 `lib/` (ES 모듈)에 두고 `tests/` 에서 `node --test`. 콘텐츠 스크립트는 import 를 못 하므로 `lib/` 를 `import(chrome.runtime.getURL(...))` 로 불러온다 (`web_accessible_resources`). 새 최상위 파일은 `scripts/package.sh` 목록과 `../Scripts/ai-sub-ko-release.sh` 의 문법 확인 목록에도.
+- 순수 로직은 `lib/` (ES 모듈)에 두고 `tests/` 에서 `node --test`. 콘텐츠 스크립트는 import 를 못 하므로 `lib/` 를 `import(chrome.runtime.getURL(...))` 로 불러온다 (`web_accessible_resources`). 새 최상위 파일은 `scripts/package.sh` 목록과 `scripts/release.sh` 의 문법 확인 목록에도.
 - Claude 요청 (`lib/prompt.js`): 모델 기본 `claude-haiku-5-5`, `thinking: {type: 'adaptive'}` + `output_config.effort: 'low'` (문서 권장: 끄지 말고 effort 로. Sonnet 5.5 는 disabled 를 400 으로 거부. 생각도 max_tokens 에 들어가 2000) + `output_config.format` = JSON `{ko}` (structured outputs — 번역문 밖 해설이 자막에 섞이지 않게. prefill 은 400), `temperature`·`top_p` 보내지 않음(400), 지시문은 같은 묶음이면 매번 같은 글이어야 캐시 — 시각·랜덤 값 금지. Haiku 5.5 캐시 최소 512 토큰(테스트가 F1 지시문 길이를 확인).
 - Gemini 요청 (`lib/gemini.js`): 미리 번역은 JSON 스키마 `{lines, names}`, 줄 수가 같아야 한다. 무료 등급 한도(`GEMINI_LIMITS`: Flash Lite 분당 15·하루 500)를 넘지 않게 background 가 간격을 두고 센다. API 키 형식은 검사하지 않는다 (형식이 바뀜 — 연결 테스트로 확인).
 - 용어집 (`lib/glossary.js`): 묶음별 `{en, ko, kind, group}` (kind = ko · keep · fix). 0.4 까지의 `{drivers, teams, terms}` 는 `sanitizeGlossary` 가 F1 묶음으로 옮긴다 — 옛 형식 읽기를 지우지 말 것.
 - 저장 키·메시지 이름의 `f1ko` 접두어는 옛 설정이 사라지지 않게 그대로 둔다.
-- 맥미니에서 실제 크롬 시험: 시험용 프로필(`--user-data-dir`)로 따로 띄우고 `--remote-debugging-pipe --enable-unsafe-extension-debugging` + CDP `Extensions.loadUnpacked` · `Extensions.triggerAction`(팝업 열기). 같은 프로필에 다시 불러오면 서비스 워커가 옛 코드로 남으니 `Extensions.uninstall` 뒤 다시 불러온다. 시험이 끝나면 크롬을 끈다 (맥 메모리 16 GB).
+- 실제 크롬 시험: 시험용 프로필(`--user-data-dir`)로 따로 띄우고 `--remote-debugging-pipe --enable-unsafe-extension-debugging` + CDP `Extensions.loadUnpacked` · `Extensions.triggerAction`(팝업 열기). 같은 프로필에 다시 불러오면 서비스 워커가 옛 코드로 남으니 `Extensions.uninstall` 뒤 다시 불러온다. 시험이 끝나면 크롬을 끈다 (메모리).
 - 클라우드 세션에는 실제 사이트·API 가 없다 → Playwright Chromium 에 확장을 불러와 가짜 페이지·가짜 응답으로 확인할 수 있다 (`channel: 'chromium'`, `--headless=new`, 한글 파일 이름은 `LANG=C.UTF-8`). 실측이 필요한 건 README ‘아직 확인 못 한 것’에 적는다.
 - 사용자에게 보이는 변경마다 `manifest.json` 의 `version` 을 올린다.
 - 주석·커밋 메시지·문서는 한국어.
+
+- 시안(사용자에게 보여 주는 화면 안)은 `~/projects/dev-guides/app-standards/mockups.md` 형식: Artifact 한 페이지에 화면 하나, 넘겨 보기, 실제 크기. Design canvas · 바둑판 금지.
