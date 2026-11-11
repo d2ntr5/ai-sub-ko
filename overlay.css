@@ -1,0 +1,135 @@
+#f1ko-root {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 2147483647;
+  font-family: "Apple SD Gothic Neo", "Pretendard", "Malgun Gothic", -apple-system, sans-serif;
+}
+
+#f1ko-btn {
+  pointer-events: auto;
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  padding: 4px 11px;
+  border: 1px solid rgba(255, 255, 255, .5);
+  border-radius: 14px;
+  background: rgba(0, 0, 0, .55);
+  color: #fff;
+  font: 800 12px/1.4 -apple-system, sans-serif;
+  cursor: pointer;
+  opacity: .55;
+  transition: opacity .2s;
+}
+#f1ko-btn:hover { opacity: 1; }
+#f1ko-btn.on { opacity: .92; }
+/* 엔진 BI 색: Claude 주황 · Gemini 파랑→보라 · 크롬 파랑 */
+#f1ko-btn.on.claude { background: #b9542f; border-color: #b9542f; }
+#f1ko-btn.on.lite { background: linear-gradient(90deg, #3b6fe0, #8a5cd0); border-color: transparent; }
+#f1ko-btn.on.chrome { background: #1a73e8; border-color: #1a73e8; }
+
+/* 음성 번역 중 (1.0): KO 버튼 왼쪽 초록 표시 */
+#f1ko-listen {
+  display: none;
+  position: absolute;
+  top: 12px;
+  padding: 4px 10px;
+  border-radius: 14px;
+  background: #0e7c66;
+  color: #fff;
+  font: 800 12px/1.4 -apple-system, sans-serif;
+  white-space: nowrap;
+  opacity: .92;
+}
+/* 받아 적는 중인 끝부분 (아직 번역으로 안 보냄) */
+#f1ko-en .f1ko-pending { opacity: .55; }
+
+#f1ko-msg {
+  display: none;
+  pointer-events: auto;
+  position: absolute;
+  top: 46px;
+  right: 12px;
+  max-width: 380px;
+  padding: 7px 11px;
+  border-radius: 7px;
+  background: rgba(0, 0, 0, .8);
+  color: #fff;
+  font-size: 13px;
+  line-height: 1.5;
+  text-align: right;
+}
+#f1ko-msg u { cursor: pointer; }
+
+#f1ko-box {
+  display: none;
+  position: absolute;
+  transform: translateX(-50%);
+  flex-direction: column;
+  align-items: center;
+  gap: .22em;
+  width: max-content;
+}
+#f1ko-box > div {
+  padding: .18em .55em;
+  border-radius: 6px;
+  background: rgba(0, 0, 0, .72);
+  color: #fff;
+  font-weight: 700;
+  line-height: 1.4;
+  text-align: center;
+  white-space: pre-line;
+  text-shadow: 0 1px 2px #000;
+}
+#f1ko-prev { color: #d2d2d8 !important; font-size: .86em; font-weight: 600 !important; }
+#f1ko-en { color: #c9c9cf !important; font-size: .55em; font-weight: 500 !important; background: rgba(0, 0, 0, .55) !important; }
+#f1ko-box > div:empty { display: none !important; }
+
+/* 자막 직접 고르기 */
+#f1ko-pickbar {
+  display: none;
+  pointer-events: auto;
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 14px;
+  background: rgba(21, 21, 30, .94);
+  color: #fff;
+  font-size: 13px;
+}
+#f1ko-pickbar > b { background: #e10600; border-radius: 6px; padding: 2px 8px; }
+#f1ko-pickbar .esc { margin-left: auto; color: #c9c9cf; }
+#f1ko-pickbox {
+  display: none;
+  position: fixed;
+  outline: 2px dashed #ffb020;
+  border-radius: 4px;
+}
+#f1ko-pickbox span {
+  position: absolute;
+  left: 50%;
+  bottom: calc(100% + 6px);
+  transform: translateX(-50%);
+  white-space: nowrap;
+  background: #ffb020;
+  color: #15151e;
+  border-radius: 6px;
+  padding: 3px 10px;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+/* 사이트 영어 자막 숨기기: 화면에서만 숨김 (글자는 남아 있어 계속 읽음) */
+.f1ko-hide-original .bmpui-ui-subtitle-overlay,
+.f1ko-hide-original .bmpui-subtitle-region-container,
+.f1ko-hide-original .ytp-caption-window-container,
+.f1ko-hide-original .jw-captions,
+.f1ko-hide-original .jw-text-track-container,
+.f1ko-hide-original [class*="subtitle-overlay"],
+.f1ko-hide-original [class*="caption-window"],
+.f1ko-hide-original .vjs-text-track-display {
+  opacity: 0 !important;
+}

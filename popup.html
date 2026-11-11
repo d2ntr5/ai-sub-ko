@@ -1,0 +1,93 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<title>AI 자막 번역</title>
+<link rel="stylesheet" href="popup.css">
+</head>
+<body>
+<header>
+  <img class="logo" src="icons/icon48.png" alt="">
+  <div class="title"><b>AI 자막 번역</b><small id="where">확인 중…</small></div>
+  <label class="switch"><input id="enabled" type="checkbox"> 켜기</label>
+</header>
+
+<section>
+  <div class="row"><b>적용 사이트</b><span class="muted" id="siteCount"></span></div>
+  <div id="sites" class="sites"></div>
+  <button type="button" id="addSite" class="dashed" hidden>＋ 이 사이트에서 켜기</button>
+  <small class="hint" id="addHint" hidden>목록에 없는 사이트를 보고 있을 때 눌러 주세요. 크롬이 이 사이트 권한을 한 번 물어봐요.</small>
+</section>
+
+<section class="status">
+  <div><span id="dotSrc" class="dot"></span><span id="srcText">—</span></div>
+  <div><span id="dotEng" class="dot"></span><span id="engText">—</span></div>
+  <div><span id="dotGl" class="dot"></span><span id="glText">—</span></div>
+</section>
+
+<section id="listenSec">
+  <div class="row"><b>음성 번역</b><span class="muted">자막이 없는 영상 · 맥 안에서 받아 적기</span></div>
+  <div class="row"><span>원문 언어</span>
+    <span class="seg2" id="listenLang"><button type="button" data-v="en">영어</button><button type="button" data-v="ja">일본어</button></span>
+  </div>
+  <div class="listen-row">
+    <button type="button" id="listenBtn" class="primary">음성 번역 시작 <small>⌥L</small></button>
+    <button type="button" id="packBtn" class="pack" hidden>언어 팩 받기</button>
+  </div>
+  <div class="listen-note" id="listenNote"><b id="listenTitle">확인 중…</b><small id="listenFix"></small></div>
+</section>
+
+<section>
+  <div class="field">
+    <div class="row"><span class="label">번역 엔진</span><span class="muted">이 탭에만 · 기본은 자동</span></div>
+    <div class="grid3" id="engine">
+      <button type="button" data-v="claude"><span>Claude</span><small></small></button>
+      <button type="button" data-v="lite"><span>Flash Lite</span><small></small></button>
+      <button type="button" data-v="chrome"><span>크롬 내장</span><small></small></button>
+    </div>
+    <small class="hint" id="keyHint" hidden>키가 없는 엔진은 고를 수 없어요 · <a href="#" id="keyLink">상세 설정에서 키 넣기</a></small>
+    <button type="button" id="engineReset" class="link small" hidden>자동으로 되돌리기</button>
+  </div>
+  <label class="field row"><span>AI 번역이 안 될 때 크롬 내장 번역</span><input id="chromeFallback" type="checkbox" class="switch-input" role="switch"></label>
+  <div class="model-warn" id="modelWarn" hidden>
+    <span id="modelText">크롬 번역 모델을 아직 받지 않았어요</span>
+    <button type="button" id="modelDl">내려받기</button>
+  </div>
+  <label class="field row"><span>지난 자막 보이기 <span class="muted">바로 앞 문장을 윗줄에 흐리게</span></span><input id="showPrev" type="checkbox"></label>
+  <label class="field row"><span>원문 보이기 <span class="muted">⌥O</span></span><input id="showEn" type="checkbox"></label>
+  <div class="field">
+    <label class="row"><span>사이트 영어 자막 숨기기</span><input id="hideOriginal" type="checkbox"></label>
+    <small class="hint" id="hideHint"></small>
+  </div>
+  <div class="field">
+    <div class="row"><span>맨 아래에서 띄우기</span><span class="muted" id="bottomVal"></span></div>
+    <input id="bottomPct" type="range" min="0" max="40" step="1" aria-label="맨 아래에서 띄우기">
+  </div>
+  <div class="field">
+    <div class="row"><span>글자 크기</span><span class="muted" id="fontVal"></span></div>
+    <input id="fontScale" type="range" min="70" max="160" step="5" aria-label="글자 크기">
+  </div>
+</section>
+
+<section>
+  <b>오늘 사용량</b>
+  <div class="use">
+    <div class="row"><span>Claude</span><span class="muted" id="claudeText"></span></div>
+    <div class="bar"><div id="claudeBar" class="claude"></div></div>
+  </div>
+  <div class="use">
+    <div class="row"><span>Gemini Flash Lite</span><span class="muted" id="liteText"></span></div>
+    <div class="bar"><div id="liteBar" class="lite"></div></div>
+  </div>
+  <div class="row muted"><span id="otherText"></span><span>무료</span></div>
+</section>
+
+<footer>
+  <a href="#" id="openOptions">상세 설정</a>
+  <button type="button" id="pick" class="link">자막 직접 고르기</button>
+  <button type="button" id="diag" class="link">진단 복사</button>
+  <span class="muted" id="ver"></span>
+</footer>
+<script type="module" src="popup.js"></script>
+</body>
+</html>

@@ -1,0 +1,6 @@
+{
+  "name": "ai-sub-ko",
+  "private": true,
+  "type": "module",
+  "description": "테스트용 (node --test). 확장 자체는 빌드 단계 없음"
+}
