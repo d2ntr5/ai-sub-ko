@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "AI 자막 번역 (ai-sub-ko)",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "F1 TV·YouTube·강의 영상의 영어 자막을, 자막이 없으면 소리를 맥 안에서 받아 적어(영어·일본어) Claude·Gemini·크롬 내장 번역으로 한국어 자막으로 보여 준다 (macOS 전용)",
   "minimum_chrome_version": "138",
   "permissions": [

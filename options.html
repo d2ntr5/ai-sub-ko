@@ -140,15 +140,24 @@
   </div>
 
   <section>
+    <h2>처음 쓰는 분</h2>
+    <ol class="use">
+      <li><b>키 없이도 바로 쓸 수 있어요.</b> 아래 <b>크롬 내장 번역 › 번역 모델 내려받기</b>를 한 번 누르면, 영상의 영어 자막이 크롬 내장 번역(무료 · Mac 안)으로 한국어가 돼요</li>
+      <li>더 자연스러운 번역을 원하면 <b>Claude API</b>(라이브 · 문맥) 또는 <b>Gemini API</b>(일반 영상 미리 번역 · 무료 등급) 키를 넣고 <b>연결 테스트</b> → <b>저장</b>하세요. 키가 있는 엔진만 자동으로 써요</li>
+      <li>자막이 없는 영상까지 보려면 아래 <b>음성 번역</b>에서 원문 언어(영어 · 일본어)의 <b>언어 팩 받기</b>를 한 번 누르세요</li>
+    </ol>
+  </section>
+
+  <section>
     <h2>번역 엔진</h2>
     <div class="engines">
-      <div class="eng"><div class="h"><img class="logo" src="icons/claude.svg" alt="">Claude Haiku 5.5<span class="tag" style="background: var(--claude)">KO·Claude</span></div>
+      <div class="eng"><div class="h">Claude Haiku 5.5<span class="tag" style="background: var(--claude)">KO·Claude</span></div>
         <dl><dt>품질</dt><dd><b>상</b> · 문맥·용어집</dd><dt>속도</dt><dd>약 0.5~1.5초</dd><dt>비용</dt><dd>2시간 약 $0.1</dd></dl>
         <div class="kst" id="kClaude"></div></div>
-      <div class="eng"><div class="h"><img class="logo" src="icons/gemini.svg" alt="">Gemini 3.5 Flash Lite<span class="tag" style="background: var(--gemini)">KO·Lite</span></div>
+      <div class="eng"><div class="h">Gemini 3.5 Flash Lite<span class="tag" style="background: var(--gemini)">KO·Lite</span></div>
         <dl><dt>품질</dt><dd><b>상</b> · 앞뒤 문맥</dd><dt>속도</dt><dd>미리 번역 · 재생 중 0초</dd><dt>비용</dt><dd>무료 · 하루 500회</dd></dl>
         <div class="kst" id="kLite"></div></div>
-      <div class="eng"><div class="h"><img class="logo" src="icons/chrome.svg" alt="">크롬 내장 번역<span class="tag" style="background: var(--chrome)">KO·크롬</span></div>
+      <div class="eng"><div class="h">크롬 내장 번역<span class="tag" style="background: var(--chrome)">KO·크롬</span></div>
         <dl><dt>품질</dt><dd>중 · 직역 + 용어집 보정</dd><dt>속도</dt><dd><b>0.1~0.3초</b> · Mac 안</dd><dt>비용</dt><dd>무료 · 키 없음</dd></dl>
         <div class="kst" id="kChrome"></div></div>
     </div>
@@ -156,7 +165,7 @@
   </section>
 
   <section>
-    <h2><span class="ttl"><img class="logo" src="icons/chrome.svg" alt="">크롬 내장 번역</span> <span class="hint">영어 → 한국어 · Mac 안에서 번역</span></h2>
+    <h2><span class="ttl">크롬 내장 번역</span> <span class="hint">영어 → 한국어 · Mac 안에서 번역</span></h2>
     <div class="row"><span class="dot" id="modelDot"></span><span id="modelText">확인 중…</span></div>
     <div class="row">
       <button id="modelDl" type="button" class="blue">번역 모델 내려받기</button>
@@ -186,7 +195,7 @@
     <p class="hint">받아 적은 글에는 문장부호가 없어서 쉼(0.7초)과 길이(영어 18낱말 · 일본어 40글자)로 끊어 번역해요 (고정).</p>
   </section>
   <section>
-    <h2><span class="ttl"><img class="logo" src="icons/claude.svg" alt="">Claude API</span> <span class="hint">Anthropic Console 키 · 쓴 만큼 결제</span></h2>
+    <h2><span class="ttl">Claude API</span> <span class="hint">Anthropic Console 키 · 쓴 만큼 결제</span></h2>
     <label for="apiKey">API 키</label>
     <div class="row">
       <input id="apiKey" type="password" placeholder="sk-ant-api03-…" autocomplete="off" spellcheck="false">
@@ -205,7 +214,7 @@
   </section>
 
   <section>
-    <h2><span class="ttl"><img class="logo" src="icons/gemini.svg" alt="">Gemini API</span> <span class="hint">Google AI Studio 키 · 무료 등급</span></h2>
+    <h2><span class="ttl">Gemini API</span> <span class="hint">Google AI Studio 키 · 무료 등급</span></h2>
     <label for="geminiKey">API 키</label>
     <div class="row">
       <input id="geminiKey" type="password" placeholder="AI Studio 에서 만든 키" autocomplete="off" spellcheck="false">
@@ -270,9 +279,9 @@
       <span class="hint"><b>전체 자막 영상</b> = 재생 전에 자막을 통째로 받는 영상 (YouTube 일반 영상·다시보기, 강의 영상) · <b>실시간 자막 영상</b> = 자막이 한 줄씩 들어오는 영상 (F1 TV 라이브, YouTube 생방송)</span>
       <div class="modes">
         <span class="hd">엔진</span><span class="hd">전체 자막 영상</span><span class="hd">실시간 자막 영상</span><span class="hd">토큰</span>
-        <b><img class="logo" src="icons/claude.svg" alt="">Claude</b><span>Flash Lite 키가 없을 때 한 줄씩</span><span><b>기본</b> · 줄마다 1회, 약 1초</span><span>줄마다 입력·출력 30~50 + 지시문 약 1천(캐시 0.1배). F1 2시간 ≈ <b>$0.1</b></span>
-        <b><img class="logo" src="icons/gemini.svg" alt="">Flash Lite</b><span><b>기본</b> · 100줄씩 미리 번역, 재생 중 0초</span><span class="no">못 써요 — 줄마다 부르면 분당 15회·하루 500회를 금방 넘고 응답도 8초 넘게 걸려요</span><span>묶음마다 입력 약 4천·출력 약 3천. 1시간 영상 ≈ 10회. 무료 등급은 돈 대신 <b>횟수</b>로 막혀요</span>
-        <b><img class="logo" src="icons/chrome.svg" alt="">크롬 내장</b><span>AI 키가 없거나 막힐 때 한 줄씩</span><span>AI 키가 없거나 막힐 때 한 줄씩, 0.2초</span><span>없음 · Mac 안에서 번역</span>
+        <b>Claude</b><span>Flash Lite 키가 없을 때 한 줄씩</span><span><b>기본</b> · 줄마다 1회, 약 1초</span><span>줄마다 입력·출력 30~50 + 지시문 약 1천(캐시 0.1배). F1 2시간 ≈ <b>$0.1</b></span>
+        <b>Flash Lite</b><span><b>기본</b> · 100줄씩 미리 번역, 재생 중 0초</span><span class="no">못 써요 — 줄마다 부르면 분당 15회·하루 500회를 금방 넘고 응답도 8초 넘게 걸려요</span><span>묶음마다 입력 약 4천·출력 약 3천. 1시간 영상 ≈ 10회. 무료 등급은 돈 대신 <b>횟수</b>로 막혀요</span>
+        <b>크롬 내장</b><span>AI 키가 없거나 막힐 때 한 줄씩</span><span>AI 키가 없거나 막힐 때 한 줄씩, 0.2초</span><span>없음 · Mac 안에서 번역</span>
       </div>
     </div>
     <p class="hint" id="sMonth"></p>
@@ -359,6 +368,9 @@
       <li>버튼에 지금 엔진이 보여요: <b>KO·Claude</b> · <b>KO·크롬</b> · <b>KO·Lite</b></li>
       <li><b>⌥ Option + O</b>: 영어 원문 보이기/숨기기</li>
       <li>목록에 없는 사이트는 팝업 › <b>이 사이트에서 켜기</b>, 자막을 못 찾으면 팝업 › <b>자막 직접 고르기</b>를 쓰세요</li>
+      <li><b>자막이 없는 영상</b>: 팝업 › 음성 번역에서 원문 언어(영어 · 일본어)를 고르고 <b>음성 번역 시작</b>, 또는 <b>⌥ Option + L</b> (다시 누르면 멈춰요). 소리는 Mac 안에서 받아 적고 밖으로 보내지 않아요</li>
+      <li>음성 번역은 처음에 언어 팩을 한 번 받아요 (팝업 또는 위 <b>음성 번역</b>의 <b>언어 팩 받기</b>). 쓸 수 없는 크롬이면 시작 단추가 회색이고 그 아래에 이유와 해결이 보여요</li>
+      <li>⌥L 은 크롬 단축키라 <code>chrome://extensions/shortcuts</code> 에서 바꿀 수 있어요</li>
     </ol>
   </section>
 

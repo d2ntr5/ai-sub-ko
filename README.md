@@ -177,10 +177,14 @@ ai-sub-ko/
 ├── options.html/js      상세 설정
 ├── lib/                 settings · sites · glossary · glossary-io · prompt · gemini · vod · errors · cost · segment · translator (ES 모듈)
 ├── tests/               node --test (lib + 가짜 chrome·fetch 로 background)
-├── icons/               확장 아이콘(파란색, scripts/make_icons.py 로 그림) · 엔진 로고 claude/gemini/chrome.svg
+├── icons/               확장 아이콘(파란색, scripts/make_icons.py 로 그림)
 └── scripts/package.sh   build/ai-sub-ko-<버전>.zip · build-<버전>.json
 ```
 
 - 테스트: `cd ai-sub-ko && node --test`
 - 빌드·배포: GitHub Actions(`.github/workflows/ai-sub-ko.yml`) — 문법·manifest 확인 → 테스트(작업 브랜치만, main 은 건너뜀) → zip → (main 만) 릴리스 `ai-sub-ko-latest` 에 `ai-sub-ko-<버전>.zip` · `build-<버전>.json`
 - 디버그: `content.js` 의 `DEBUG = true` → 영상 탭 개발자 도구 콘솔의 `[AISUBKO]`. background 로그는 `chrome://extensions` 확장 카드의 ‘서비스 워커’
+
+## 라이선스
+
+[MIT](./LICENSE). Claude · Gemini · Chrome 은 각 회사의 상표이며, 이 확장은 그 회사들과 관계가 없습니다.
