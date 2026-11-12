@@ -79,11 +79,12 @@
     lastSeenAt: 0,
     enabledAt: 0,
     warned: false,
-    curSrc: '', cur: '', prev: '', en: '',
+    curSrc: '', cur: '', prev: '', en: '', lastOut: '',
     holdTimer: null,
     ms: [],
     fails: 0,
     hiddenTracks: new Set(),
+    wokeTracks: new Set(),      // 우리가 hidden 으로 켠 영어 트랙 (끌 때 다시 disabled)
     chromeN: 0, chromeMs: 0
   };
   const log = (...a) => DEBUG && console.log('[AISUBKO]', ...a);
@@ -276,8 +277,11 @@
   function render(src, out) {
     clearTimeout(S.holdTimer);
     S.vodShown = -1;
-    const prev = SEG.isContinuation(S.curSrc, src) ? S.prev : S.cur;
+    // 앞 자막이 잠깐 사라졌다가(문장 사이 쉼) 새 자막이 오면 S.cur 는 비어 있다 → 마지막에 보인 번역을 윗줄로
+    const prev = S.seeked ? '' : SEG.isContinuation(S.curSrc, src) ? S.prev : (S.cur || S.lastOut);
+    S.seeked = false;
     S.curSrc = src;
+    S.lastOut = out;
     setLines(prev, out, src.split('\n').slice(-2).join(' '));
     if (S.listen) showListenSource();
   }
@@ -355,6 +359,10 @@
     if (!hide) {
       for (const tr of S.hiddenTracks) if (tr.mode === 'hidden') tr.mode = 'showing';
       S.hiddenTracks.clear();
+    }
+    if (!(S.enabled && S.siteOn)) {
+      for (const tr of S.wokeTracks) if (tr.mode === 'hidden') tr.mode = 'disabled';
+      S.wokeTracks.clear();
     }
   }
 
@@ -692,13 +700,32 @@
       }
     }
     for (const v of document.querySelectorAll('video')) {
-      for (const tr of v.textTracks || []) {
-        if (tr.mode === 'disabled' || !tr.activeCues || !tr.activeCues.length) continue;
+      // 영어 트랙 먼저. 언어가 적힌 다른 언어 트랙(스페인어 등)은 읽지 않는다
+      const tracks = [...(v.textTracks || [])].filter(tr => tr.mode !== 'disabled' && /subtitles|captions/.test(tr.kind || 'subtitles'));
+      const en = tracks.filter(isEnTrack);
+      const unknown = tracks.filter(tr => !tr.language && !isEnTrack(tr));
+      for (const tr of [...en, ...unknown]) {
+        if (!tr.activeCues || !tr.activeCues.length) continue;
         const t = SEG.clean([...tr.activeCues].map(c => c.text).join('\n'));
         if (t) { S.source = `자막 트랙 ${tr.language || tr.label || '?'}`; return t; }
       }
     }
     return '';
+  }
+
+  function isEnTrack(tr) {
+    return /^en\b/i.test(tr.language || '') || /english|영어/i.test(tr.label || '');
+  }
+
+  /** 영어 트랙이 있는데 꺼져 있고(다른 언어 트랙이 기본) 켜진 영어 트랙이 없으면, 화면에 안 보이게(hidden) 켜서 줄을 받는다 */
+  function ensureEnTrack() {
+    for (const v of document.querySelectorAll('video')) {
+      const subs = [...(v.textTracks || [])].filter(tr => /subtitles|captions/.test(tr.kind));
+      const en = subs.filter(isEnTrack);
+      if (!en.length || en.some(tr => tr.mode !== 'disabled')) continue;
+      en[0].mode = 'hidden';
+      S.wokeTracks.add(en[0]);
+    }
   }
 
   function noCaptionHint() {
@@ -715,6 +742,7 @@
     if (S.enabled && S.siteOn && S.cfg.listenWhen === 'always' && !S.listenAsked) suggestListen();
     if (!S.enabled || !S.siteOn || S.koHuman || S.skipAsr || S.picking) return;
     placeBox();
+    ensureEnTrack();
     checkTrackVod();
     maybeReloadYtCaptions();
     // YouTube 광고 중에는 번역하지 않는다 (광고 자막 번역 비용 · 광고는 같은 <video> 라 본편 미리 번역 줄도 시각이 어긋남)
@@ -746,6 +774,12 @@
   async function doTranslate(src, ordered = false) {
     S.seg.started();
     const my = ++S.seq;
+    // 글자가 없는 줄(♪ ♪, -- 등)은 번역 요청 없이 그대로 (돈·한도를 쓰지 않게)
+    if (!/\p{L}/u.test(src)) {
+      render(src, src);
+      setLines(S.prev, S.cur, '');
+      return;
+    }
     try {
       const out = await translate(src);
       S.history = SEG.pushHistory(S.history, src);
@@ -939,6 +973,7 @@
     S.warned = false;
     S.used = '';
     S.seg = new SEG.Segmenter();
+    S.lastOut = '';
     applyHideOriginal();
     updateBadge();
     if (!root) return;
@@ -972,6 +1007,8 @@
   document.addEventListener('seeking', e => {
     if (e.target?.tagName !== 'VIDEO' || !S.enabled) return;
     S.seg = new SEG.Segmenter();
+    S.lastOut = '';             // 건너뛴 뒤에는 그 전 장면 자막을 윗줄에 두지 않음
+    S.seeked = true;
     clearSoon();
   }, true);
 

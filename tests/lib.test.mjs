@@ -235,6 +235,8 @@ test('롤업 자막 끊기', () => {
   assert.equal(clean('>> [music]\n>> AI was like'), '[music]\nAI was like');
   assert.equal(clean('>>'), '');
   assert.equal(clean('if a >> b'), 'if a b');
+  assert.equal(clean('<v Instructor>A VPC &amp; a subnet &lt;3 &#39;ok&#x27; &bogus;'), "A VPC & a subnet <3 'ok' &bogus;", 'WebVTT 문자 참조 풀기');
+  assert.equal(clean('&gt;&gt; next'), 'next', '참조로 온 화자 표시도 빼기');
   assert.equal(clean('a->b x>>y'), 'a->b x>>y', '낱말에 붙은 > 는 그대로');
 });
 
