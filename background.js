@@ -188,7 +188,7 @@ async function addSite(host, tabId) {
   if (!existing.length) {
     await chrome.scripting.registerContentScripts([{
       id, matches, js: ['content.js'], css: ['overlay.css'], allFrames: true, runAt: 'document_idle', persistAcrossSessions: true
-    }]);
+    }]).catch(e => { if (!/duplicate/i.test(e.message)) throw e; }); // 팝업 · 권한 허락 알림이 같이 더할 때
   }
   const cfg = normalize(await chrome.storage.sync.get(null));
   if (!cfg.customSites.includes(host)) await chrome.storage.sync.set({ customSites: [...cfg.customSites, host], siteOn: { ...cfg.siteOn, [host]: true } });
@@ -198,6 +198,17 @@ async function addSite(host, tabId) {
     await chrome.scripting.executeScript({ target: { tabId, allFrames: true }, files: ['content.js'] }).catch(() => {});
   }
 }
+
+// 팝업의 「이 사이트에서 켜기」: 권한 창이 뜨면 팝업이 닫혀 팝업이 더하기를 끝내지 못한다 →
+// 팝업이 미리 알려 둔 사이트의 권한이 허락되면 여기서 마저 더한다 (5분 안)
+const PENDING_MS = 5 * 60_000;
+chrome.permissions.onAdded.addListener(async ({ origins = [] }) => {
+  const { sitePending: p = null } = await chrome.storage.session.get('sitePending');
+  if (!p || Date.now() - p.at > PENDING_MS) return;
+  if (!origins.some(o => o === `https://${p.host}/*` || o === `http://${p.host}/*`)) return;
+  await chrome.storage.session.remove('sitePending');
+  await addSite(p.host, p.tabId).catch(() => {});
+});
 
 async function removeSite(host) {
   await chrome.scripting.unregisterContentScripts({ ids: [scriptId(host)] }).catch(() => {});
@@ -406,7 +417,13 @@ const handlers = {
     return result;
   },
 
+  async 'f1ko-site-pending'(msg) {
+    await chrome.storage.session.set({ sitePending: { host: String(msg.host || ''), tabId: msg.tabId ?? null, at: Date.now() } });
+    return { ok: true };
+  },
+
   async 'f1ko-site-add'(msg) {
+    await chrome.storage.session.remove('sitePending');
     await addSite(msg.host, msg.tabId ?? null);
     return { ok: true };
   },
