@@ -370,6 +370,12 @@
   /** 모델을 받은 상태일 때만 쓴다. 내려받기는 팝업·상세 설정의 버튼으로 (크롬이 사용자가 누를 때만 허락) */
   const srcLang = () => S.listen?.lang || 'en';
 
+  /** 크롬 내장 번역을 지금 바로 쓸 수 있는지 (모델 받음) — 묻기만 하고 받지는 않음 */
+  async function chromeReady(src = srcLang()) {
+    if (S.chromeTr[src]) return true;
+    try { return 'Translator' in self && (await Translator.availability({ sourceLanguage: src, targetLanguage: 'ko' })) === 'available'; } catch { return false; }
+  }
+
   async function ensureChromeTranslator(src = 'en', quiet = false) {
     if (S.chromeTr[src]) return true;
     if (!('Translator' in self)) { showMsg('크롬 내장 번역을 쓸 수 없어요 (크롬 138 이상 필요)', 6000); return false; }
@@ -500,14 +506,20 @@
     if (lineEngine() !== 'lite' || !usable('lite')) return;
     v.running = true;
     const n = v.cues.length;
-    const t = mainVideo()?.currentTime || 0;
-    const ranges = VOD.orderFrom(VOD.batchRanges(n, BATCH), v.cues, t);
-    for (const [a, b] of ranges) {
+    const all = VOD.batchRanges(n, BATCH);
+    const left = r => !v.failed.has(`${r[0]}-${r[1]}`) && !v.tr.slice(r[0], r[1]).every(Boolean);
+    for (;;) {
       if (S.vod !== v || !S.enabled || lineEngine() !== 'lite' || !usable('lite')) break;
+      // 묶음마다 지금 재생 위치에서 다시 고른다 — 번역 중에 뒤로 건너뛰면 그 자리 묶음을 먼저
+      const next = VOD.orderFrom(all, v.cues, mainVideo()?.currentTime || 0).find(left);
+      if (!next) break;
+      const [a, b] = next;
       const rk = `${a}-${b}`;
-      if (v.failed.has(rk) || v.tr.slice(a, b).every(Boolean)) continue;
       const doneLines = v.tr.filter(Boolean).length;
-      showMsg(`자막 ${n}줄 미리 번역 중 · ${doneLines}줄 끝 · 그동안은 ${esc(ENGINE_NAMES[lineChain().find(Boolean)] || '자막 멈춤')}`, 0);
+      const fill = lineChain().find(Boolean);
+      // 크롬 번역 모델이 없으면 그동안 나오는 자막이 없다 → '그동안은 크롬 내장 번역' 이라고 하지 않음
+      const meanwhile = !fill || (fill === 'chrome' && !(await chromeReady())) ? '번역이 오는 대로 보여요' : `그동안은 ${esc(ENGINE_NAMES[fill])}`;
+      showMsg(`자막 ${n}줄 미리 번역 중 · ${doneLines}줄 끝 · ${meanwhile}`, 0);
       try {
         const res = await chrome.runtime.sendMessage({ type: 'f1ko-batch', lines: v.cues.slice(a, b).map(c => c.text), names: S.cfg.filmNames ? v.names : [], packs: S.packs });
         if (!res?.ok) throw Object.assign(new Error(res?.error || '응답 없음'), { code: res?.code || 'API_ERROR' });
