@@ -338,7 +338,13 @@ const handlers = {
     return listenStart(msg.tabId, msg.streamId || null, msg.lang || null);
   },
 
-  async 'f1ko-listen-stop'(msg) {
+  async 'f1ko-listen-stop'(msg, sender) {
+    // 콘텐츠 스크립트(⌥K 끄기)가 부르면 그 탭이 음성 번역 중일 때만 — 다른 탭의 음성 번역은 건드리지 않음
+    if (sender?.tab?.id != null) {
+      const cur = await listenState();
+      if (cur?.tabId !== sender.tab.id) return { ok: true };
+      return listenStop(sender.tab.id, msg.reason === 'off' ? 'off' : 'user');
+    }
     return listenStop(msg.tabId ?? null);
   },
 
