@@ -226,7 +226,10 @@ $('listenHints').addEventListener('change', e => saveSync({ listenHints: e.targe
 async function saveClaude() {
   const apiKey = $('apiKey').value.trim();
   if (apiKey && !apiKey.startsWith('sk-ant-')) { saveNote('saveMsg', '키 모양이 이상해요. sk-ant- 로 시작하는지 확인해 주세요.', true); return; }
-  await saveSync({ model: $('model').value });
+  const m = models.find(x => x.id === $('model').value);
+  const changed = $('model').value !== cfg.model;
+  await saveSync({ model: $('model').value, ...(changed && m ? { priceIn: m.priceIn, priceOut: m.priceOut } : {}) });
+  if (changed && m) { $('priceIn').value = cfg.priceIn; $('priceOut').value = cfg.priceOut; renderUsage(); }
   await chrome.storage.local.set({ apiKey });
   saveNote('saveMsg', apiKey ? '✓ 저장됨 · 열려 있는 탭에도 바로 적용돼요' : '✓ 저장됨 · Claude 키가 없으면 다른 엔진만 써요');
 }
@@ -270,8 +273,9 @@ $('save').addEventListener('click', saveClaude);
 $('test').addEventListener('click', testClaude);
 $('model').addEventListener('change', () => {
   const m = models.find(x => x.id === $('model').value);
-  if (m) { $('priceIn').value = m.priceIn; $('priceOut').value = m.priceOut; saveSync({ priceIn: m.priceIn, priceOut: m.priceOut }); }
-  saveNote('saveMsg', '저장을 눌러야 모델이 바뀌어요.');
+  // 단가는 「저장」 때 모델과 함께 저장한다 — 고르기만 하고 저장하지 않으면 쓰는 모델은 그대로인데 단가만 바뀌어 비용 상한이 어긋남
+  if (m) { $('priceIn').value = m.priceIn; $('priceOut').value = m.priceOut; }
+  saveNote('saveMsg', '저장을 눌러야 모델 · 단가가 바뀌어요.');
 });
 const toggleShow = (inputId, btnId) => () => {
   const el = $(inputId);
