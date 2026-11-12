@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { normalize, SYNC_DEFAULTS, MODELS, pickEngine, hasKey } from '../lib/settings.js';
-import { DEFAULT_GLOSSARY, PACKS, sanitizeGlossary, glossaryPrompt, fixChromeTranslation, cleanEntry, entriesFor } from '../lib/glossary.js';
+import { DEFAULT_GLOSSARY, PACKS, sanitizeGlossary, glossaryPrompt, fixChromeTranslation, cleanEntry, entriesFor, usePacks } from '../lib/glossary.js';
 import { buildSystemPrompt, buildRequestBody, buildHeaders, extractText, buildUserContent, pickClaudeModels, packRules } from '../lib/prompt.js';
 import { classify, HARD, SOFT, MESSAGES, describe, eul } from '../lib/errors.js';
 import { addUsage, costUsd, cacheHitRate, sumDays, pruneDays, overCap, dayKey, nextMidnight, emptyDay, ptDayKey, nextPtMidnight, liteRemaining, shortWhen } from '../lib/cost.js';
@@ -389,12 +389,16 @@ test('가져오기 검사·미리보기·적용', () => {
   assert.deepEqual(merged.packs.cloud.map(x => x.en), ['region', 'Cloud Functions', 'VPC', 'landing zone']);
   assert.equal(merged.packs.cloud[0].ko, '리전');
   assert.equal(merged.packs['내 묶음'].length, 1, '없는 묶음 이름 → 새 묶음');
+  assert.match(glossaryPrompt(merged, ['common']), /\[내 묶음\]\n- foo → 푸/, '만든 묶음은 어디서나 지시문에');
+  assert.equal(fixChromeTranslation('the foo works', merged, ['common']), 'the 푸 works', '만든 묶음은 크롬 번역 보정에도');
+  assert.deepEqual(usePacks(merged, ['common', 'cloud']), ['common', 'cloud', '내 묶음']);
   const replaced = applyImport(base, inc, 'replace');
   assert.deepEqual(replaced.packs.cloud.map(x => x.en), ['region', 'landing zone', 'Cloud Functions'], '파일에 없는 VPC 는 지워짐');
   assert.equal(replaced.packs.f1.length, base.packs.f1.length, '다른 묶음은 그대로');
   assert.throws(() => parseImport('a,b\n1,2'), /첫 줄은/);
   assert.throws(() => parseImport('{"x":1}'), /용어집 파일이 아니에요/);
   assert.throws(() => parseImport(''), /빈 파일/);
+  assert.throws(() => parseImport('not json {', 'gl.json'), /JSON 을 읽지 못했어요/, '.json 파일이 망가짐');
   const legacy = parseImport(JSON.stringify({ drivers: [['Max Verstappen', '막스']], teams: [], terms: [] }));
   assert.equal(legacy.packs.f1[0].ko, '막스', '0.4 까지의 JSON');
   assert.equal(exportFileName('pack', 'cloud', 'json', new Date(2026, 9, 26)), 'ai-sub-ko-용어집-클라우드-20261026.json');

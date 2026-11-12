@@ -482,7 +482,7 @@ $('glFile').addEventListener('change', async e => {
   e.target.value = '';
   if (!f) return;
   let incoming;
-  try { incoming = parseImport(await f.text()); } catch (err) { $('ioMsg').textContent = `✗ ${err.message}`; return; }
+  try { incoming = parseImport(await f.text(), f.name); } catch (err) { $('ioMsg').textContent = `✗ ${err.message}`; return; }
   pending = { file: f.name, incoming, preview: previewImport(glossary, incoming) };
   showImport();
 });
