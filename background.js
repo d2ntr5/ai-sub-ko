@@ -452,7 +452,24 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
   return true; // 비동기 응답
 });
 
+// 「이 사이트에서 켜기」로 더한 사이트: 크롬은 확장이 업데이트되면 등록한 콘텐츠 스크립트를 지운다 (2026-11-12 시험).
+// 목록(customSites) · 권한은 남으므로 업데이트 · 크롬 시작 때 권한이 있는 사이트를 다시 등록한다
+async function restoreSites() {
+  const cfg = normalize(await chrome.storage.sync.get(null));
+  for (const host of cfg.customSites) {
+    const ok = await chrome.permissions.contains({ origins: [`https://${host}/*`, `http://${host}/*`] }).catch(() => false);
+    if (!ok) continue; // 권한이 없으면 팝업이 「이 사이트에서 켜기」를 다시 보여 준다
+    const id = scriptId(host);
+    if ((await chrome.scripting.getRegisteredContentScripts({ ids: [id] })).length) continue;
+    await chrome.scripting.registerContentScripts([{
+      id, matches: [`https://${host}/*`, `http://${host}/*`], js: ['content.js'], css: ['overlay.css'], allFrames: true, runAt: 'document_idle', persistAcrossSessions: true
+    }]).catch(() => {});
+  }
+}
+chrome.runtime.onStartup.addListener(() => { restoreSites(); });
+
 // 처음 설치하면 상세 설정(API 키 넣기)부터
 chrome.runtime.onInstalled.addListener(({ reason }) => {
   if (reason === 'install') chrome.runtime.openOptionsPage();
+  restoreSites();
 });

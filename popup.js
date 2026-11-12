@@ -34,8 +34,10 @@ async function save(patch) {
 }
 
 // ===== 적용 사이트 =====
+let customGranted = true; // 지금 탭이 직접 더한 사이트일 때 권한이 남아 있는지 (다시 설치하면 권한이 없어짐)
 function renderSites() {
-  const here = tab?.url ? siteFor(new URL(tab.url).hostname, cfg.customSites) : null;
+  let here = tab?.url ? siteFor(new URL(tab.url).hostname, cfg.customSites) : null;
+  if (here?.custom && !customGranted) here = null; // 목록에는 있지만 권한이 없으면 다시 켜게
   const all = [...BUILTIN_SITES, ...cfg.customSites.map(h => ({ id: h, name: h }))];
   $('sites').innerHTML = all.map(s => `<label class="${here?.id === s.id ? 'here' : ''}"><span>${esc(s.name)}${here?.id === s.id ? ' <span class="muted">· 지금 탭</span>' : ''}</span><input type="checkbox" data-site="${esc(s.id)}" ${cfg.siteOn[s.id] === false ? '' : 'checked'} aria-label="${esc(s.name)} 에 적용"></label>`).join('');
   $('siteCount').textContent = `${all.length}곳 · 상세 설정에서 관리`;
@@ -57,6 +59,7 @@ $('addSite').addEventListener('click', async () => {
   const granted = await chrome.permissions.request({ origins: patterns }).catch(() => false);
   if (!granted) { $('addHint').textContent = '권한을 허락해야 이 사이트에서 쓸 수 있어요.'; return; }
   await chrome.runtime.sendMessage({ type: 'f1ko-site-add', host: o.host, tabId: tab.id });
+  customGranted = true;
   cfg = normalize(await chrome.storage.sync.get(null));
   render();
   $('where').textContent = `${o.host} 에서 켰어요 · 영상 위 KO 버튼을 확인해 주세요`;
@@ -180,6 +183,7 @@ function pageReason() {
 async function refreshListen() {
   const st = tab?.id != null ? await chrome.runtime.sendMessage({ type: 'f1ko-listen-state', tabId: tab.id }).catch(() => null) : null;
   listen.listening = !!st?.listening;
+  listen.other = !!st?.other;
   let reason;
   if (cfg.listenWhen === 'off') reason = 'off';
   else if (listen.installing) reason = 'downloading';
@@ -219,7 +223,9 @@ function renderListen() {
   $('packBtn').disabled = listen.installing;
   note.className = `listen-note ${r === 'ok' ? 'ok' : ['no-pack', 'downloading', 'off'].includes(r) ? 'warn' : 'err'}`;
   $('listenTitle').textContent = r === 'ok' ? `✓ ${t.title}` : t.title;
-  $('listenFix').textContent = r === 'ok' ? '탭 소리를 맥 안에서 받아 적어 한국어로 번역해요. 소리는 맥 밖으로 나가지 않아요.' : t.fix;
+  $('listenFix').textContent = r !== 'ok' ? t.fix
+    : listen.other ? '다른 탭에서 음성 번역 중이에요 · 여기서 시작하면 그 탭은 멈춰요 (한 번에 한 탭만).'
+      : '탭 소리를 맥 안에서 받아 적어 한국어로 번역해요. 소리는 맥 밖으로 나가지 않아요.';
 }
 
 $('listenLang').addEventListener('click', e => {
@@ -317,6 +323,8 @@ $('pick').addEventListener('click', async () => {
   $('enabled').checked = enabled;
   $('ver').textContent = `v${chrome.runtime.getManifest().version} · macOS 전용`;
   [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+  const o = tab?.url ? originPattern(tab.url) : null;
+  if (o && cfg.customSites.includes(o.host)) customGranted = await chrome.permissions.contains({ origins: [o.pattern] }).catch(() => true);
   render();
   try { const k = await chrome.runtime.sendMessage({ type: 'f1ko-keys' }); if (k?.ok) keys = { claude: k.claude, gemini: k.gemini }; } catch { /* 그대로 */ }
   refreshModel();

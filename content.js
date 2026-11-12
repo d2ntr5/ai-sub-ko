@@ -239,7 +239,8 @@
   /** important: 오류 안내처럼 놓치면 안 되는 글 — 보이는 동안 덜 중요한 글(모델 내려받기 등)이 덮지 않는다 */
   function showMsg(html, ms = 3500, important = false) {
     if (!msg) return;
-    if (!important && html && Date.now() < (showMsg._until || 0)) return;
+    // 중요한 안내가 떠 있는 동안에는 덜 중요한 글도, 덜 중요한 지우기('')도 덮지 않는다
+    if (!important && Date.now() < (showMsg._until || 0)) return;
     showMsg._until = important && html ? Date.now() + (ms || 8000) : 0;
     msg.innerHTML = html;
     msg.style.display = html ? 'block' : 'none';
@@ -804,8 +805,12 @@
     let r = null;
     try { r = await chrome.runtime.sendMessage({ type: 'f1ko-listen-support' }); } catch { return; }
     if (S.listen || !r) return;
-    const what = S.cfg.listenWhen === 'always' ? '소리를 받아 적어 번역할 수 있어요' : '영어 자막이 없어요';
-    if (r.ok) showMsg(`${what} · 아이콘이나 <b>⌥L</b> 을 누르면 음성 번역을 시작해요`, 15000, true);
+    // 자막을 못 찾은 경우(auto)는 「CC 켜기 · 자막 직접 고르기」 안내를 지우지 않고 음성 번역을 덧붙인다
+    if (r.ok) {
+      showMsg(S.cfg.listenWhen === 'always'
+        ? '소리를 받아 적어 번역할 수 있어요 · 아이콘이나 <b>⌥L</b> 을 누르면 음성 번역을 시작해요'
+        : `${noCaptionHint()}<br>자막이 없는 영상이면 아이콘이나 <b>⌥L</b> 로 음성 번역을 시작해요`, 15000, true);
+    }
     else if (r.reason !== 'off') {
       const t = LIS.reasonText(r.reason, S.cfg.listenLang, LIS.chromeVersion(navigator.userAgent));
       showMsg(`${noCaptionHint()}<br>음성 번역도 쓸 수 없어요 — ${esc(t.title)} · ${esc(t.fix)}`, 15000, true);

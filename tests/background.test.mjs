@@ -20,12 +20,13 @@ function area(name) {
 const registered = [];
 const injected = [];
 // 음성 번역(1.0)용 가짜: offscreen 문서 · 탭 소리 · 탭 메시지 · 단축키
-const fake = { offscreen: false, offReplies: {}, toOff: [], toTab: [], badge: {}, captureError: null, commands: [], contentPresent: true, permAdded: [] };
+const fake = { offscreen: false, offReplies: {}, toOff: [], toTab: [], badge: {}, captureError: null, commands: [], contentPresent: true, permAdded: [], installed: [], granted: new Set() };
 globalThis.chrome = {
   storage: { sync: area('sync'), local: area('local'), session: area('session') },
   runtime: {
     onMessage: { addListener: f => listeners.push(f) },
-    onInstalled: { addListener: () => {} },
+    onInstalled: { addListener: f => fake.installed.push(f) },
+    onStartup: { addListener: () => {} },
     openOptionsPage: () => {},
     async sendMessage(m) { fake.toOff.push(m); const r = fake.offReplies[m.type]; return typeof r === 'function' ? r(m) : r; }
   },
@@ -53,7 +54,7 @@ globalThis.chrome = {
     async insertCSS(o) { injected.push(['css', o]); },
     async executeScript(o) { injected.push(['js', o]); }
   },
-  permissions: { async remove() { return true; }, onAdded: { addListener: f => fake.permAdded.push(f) } }
+  permissions: { async remove() { return true; }, async contains({ origins }) { return origins.every(o => fake.granted.has(o)); }, onAdded: { addListener: f => fake.permAdded.push(f) } }
 };
 
 let calls = [];
@@ -241,6 +242,20 @@ test('팝업 「이 사이트에서 켜기」: 권한 창에 팝업이 닫혀도
   assert.deepEqual(injected.map(([k, o]) => [k, o.target.tabId]), [['css', 9], ['js', 9]]);
   assert.equal(store.session.sitePending, undefined, '한 번 쓰면 지움');
   await send({ type: 'f1ko-site-remove', host: 'class.example.com' });
+});
+
+test('확장 업데이트 뒤: 권한이 남은 직접 더한 사이트만 콘텐츠 스크립트를 다시 등록', async () => {
+  store.sync.customSites = ['a.example.com', 'b.example.com'];
+  fake.granted = new Set(['https://a.example.com/*', 'http://a.example.com/*']);
+  registered.length = 0;
+  for (const f of fake.installed) await f({ reason: 'update' });
+  await new Promise(r => setTimeout(r, 10));
+  assert.deepEqual(registered.map(r => r.id), ['site-a.example.com']);
+  assert.deepEqual(registered[0].matches, ['https://a.example.com/*', 'http://a.example.com/*']);
+  for (const f of fake.installed) await f({ reason: 'update' });
+  await new Promise(r => setTimeout(r, 10));
+  assert.equal(registered.length, 1, '이미 있으면 그대로');
+  registered.length = 0; store.sync.customSites = []; fake.granted = new Set();
 });
 
 // ===== 음성 번역 (1.0) =====
