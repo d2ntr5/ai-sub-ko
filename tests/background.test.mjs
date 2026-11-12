@@ -361,6 +361,16 @@ test('토큰 아끼기: 같은 줄은 탭 · 새로고침이 달라도 다시 �
   assert.equal(calls.length - n0, 3, '용어집이 바뀌면 다시 번역');
 });
 
+test('토큰 아끼기: 두 탭이 같은 줄을 동시에 요청하면 API 는 한 번', async () => {
+  store.local.apiKey = 'sk-ant-test';
+  reply = () => ({ status: 200, body: { content: [{ type: 'text', text: '{"ko":"같이"}' }], usage: { input_tokens: 10, output_tokens: 1 } } });
+  const n0 = calls.length;
+  const [a, b] = await Promise.all([1, 2].map(() => send({ type: 'f1ko-translate', text: 'Same moment line', packs: ['common'] })));
+  assert.equal(calls.length - n0, 1);
+  assert.equal(a.text, '같이');
+  assert.equal(b.text, '같이');
+});
+
 test('토큰 아끼기: Claude 분당 상한을 넘으면 LOCAL_RATE (API 안 부름)', async () => {
   store.local.apiKey = 'sk-ant-test';
   reply = () => ({ status: 200, body: { content: [{ type: 'text', text: '{"ko":"줄"}' }], usage: { input_tokens: 10, output_tokens: 1 } } });
