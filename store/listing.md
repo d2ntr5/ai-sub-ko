@@ -1,12 +1,12 @@
-# 크롬 웹 스토어 등록정보 (ai-sub-ko 1.0.1)
+# 크롬 웹 스토어 등록정보 (ai-sub-ko 1.0.18)
 
 2026-11-11 준비. 업로드 · 제출은 게시자가 직접 한다.
-**게시됨 (1.0.1, 2026-11-12)**: https://chromewebstore.google.com/detail/ckifmgaaeodbodmpoigiadfmfecpodli — 공개 · 대한민국 · 무료.
+**게시됨 (1.0.18, 2026-11-13)** · 처음 게시 1.0.1 (2026-11-12): https://chromewebstore.google.com/detail/ckifmgaaeodbodmpoigiadfmfecpodli — 공개 · 대한민국 · 무료.
 대시보드 칸에 그대로 붙여 넣는 글. 「확인 전」은 대시보드 화면에서 직접 확인할 것.
 
 ## 올릴 zip
 
-- `make store` → `build/ai-sub-ko-<버전>-store.zip` (1.0.1)
+- `make store` → `build/ai-sub-ko-<버전>-store.zip` (지금 1.0.18)
 - 릴리즈 zip(`ai-sub-ko-<버전>.zip`)과 파일이 같다. 다른 점은 맨 위 `ai-sub-ko/` 폴더 없이 `manifest.json` 이 zip 맨 위에 있는 것뿐 — 스토어는 zip 맨 위에 manifest 가 있어야 받는다.
 - 들어 있는 것: manifest · 화면 · 스크립트 · `lib/` · `icons/`. 시험(`tests/`) · `scripts/` · 문서 · `package.json` 은 없다. 난독화 · 압축(minify) 없음.
 
