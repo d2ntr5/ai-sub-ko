@@ -836,6 +836,7 @@
 
   const STOP_TEXT = {
     user: '음성 번역을 멈췄어요',
+    off: '한국어 자막 끔 · 음성 번역도 멈췄어요',
     moved: '다른 탭에서 음성 번역을 시작해서 여기는 멈췄어요',
     ended: '탭 소리가 끊겨서 음성 번역을 멈췄어요 · 다시 하려면 ⌥L',
     failed: '받아 적기가 계속 멈춰서 음성 번역을 껐어요 · 다시 하려면 ⌥L, 계속되면 팝업의 「진단 복사」를 보내 주세요'
@@ -1001,6 +1002,8 @@
       S.seq += 1;               // 끄기 전에 보낸 번역이 늦게 와서 자막을 다시 띄우지 않게
       S.curSrc = '';
       setLines('', '', '');
+      // 음성 번역 중이면 그것도 멈춘다 (끄고 나서도 받아 적기 · 번역 요청이 계속되지 않게)
+      if (S.listen) { chrome.runtime.sendMessage({ type: 'f1ko-listen-stop', reason: 'off' }).catch(() => {}); return; }
       if (!silent && S.siteOn) showMsg('한국어 자막 끔', 1500);
     }
   }
