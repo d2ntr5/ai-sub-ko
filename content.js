@@ -448,11 +448,13 @@
     if (!cues.length) return;
     const key = VOD.vodKey(id, cues);
     if (S.vod?.key === key) return;
-    const v = { key, cues, tr: new Array(cues.length).fill(null), names: [], done: false, running: false, failed: new Set(), tries: {} };
+    // loading: 저장해 둔 번역을 읽는 동안 — 그 사이 시계(tick)가 미리 번역을 시작해 같은 영상을 다시 요청하지 않게
+    const v = { key, cues, tr: new Array(cues.length).fill(null), names: [], done: false, running: false, loading: true, failed: new Set(), tries: {} };
     S.vod = v;
     S.mode = 'vod';
     S.vodShown = -1;
-    const { vodCache = {} } = await chrome.storage.local.get('vodCache');
+    const { vodCache = {} } = await chrome.storage.local.get('vodCache').catch(() => ({}));
+    v.loading = false;
     const hit = vodCache[key];
     if (S.vod === v && hit && Array.isArray(hit.tr) && hit.tr.length === cues.length) {
       v.tr = hit.tr;
@@ -472,7 +474,7 @@
 
   async function maybeRunVod() {
     const v = S.vod;
-    if (!v || v.done || v.running || !S.enabled || !S.siteOn || S.koHuman || S.listen) return;
+    if (!v || v.done || v.running || v.loading || !S.enabled || !S.siteOn || S.koHuman || S.listen) return;
     if (lineEngine() !== 'lite' || !usable('lite')) return;
     v.running = true;
     const n = v.cues.length;
@@ -711,7 +713,7 @@
     }
     S.inAd = false;
     keepYtOriginal();
-    if (S.vod && !S.vod.done && !S.vod.running) maybeRunVod(); // 일시 오류로 멈췄던 미리 번역 다시
+    if (S.vod && !S.vod.done && !S.vod.running && !S.vod.loading) maybeRunVod(); // 일시 오류로 멈췄던 미리 번역 다시
     if (S.vod && lineEngine() === 'lite' && renderVod()) return;
     let src = readSource();
     if (SEG.isKorean(src)) src = ''; // 한국어 자막은 번역하지 않는다
