@@ -33,6 +33,7 @@ const packsOf = msg => (Array.isArray(msg.packs) && msg.packs.length ? msg.packs
 const claudeRate = new RateWindow(CLAUDE_PER_MIN);
 // 같이 쓰는 번역 기억: 같은 줄을 다른 탭 · 새로고침 · 되감기 뒤에 다시 사지 않게. 크롬을 끄면 지워짐 (storage.session)
 let shared = null, sharedSaveTimer = 0;
+const inflight = new Map(); // 지금 요청 중인 줄 → 그 요청
 async function sharedCache() {
   if (!shared) {
     const { trCache = [] } = await chrome.storage.session.get('trCache').catch(() => ({}));
@@ -393,17 +394,23 @@ const handlers = {
     const cache = await sharedCache();
     const hit = cache.get(key);
     if (hit !== undefined) return { ok: true, text: hit, ms: 0, cached: true };
-    if (overCap(await today(), cfg.dailyCapUsd, cfg.priceIn, cfg.priceOut)) throw err('CAP', '오늘 비용 상한');
-    if (!claudeRate.tryTake()) throw err('LOCAL_RATE', `1분에 ${CLAUDE_PER_MIN}번 넘게 요청함`);
-    try {
-      const r = await callClaude(msg.text, msg.context || [], cfg, packsOf(msg), TIMEOUT_MS, srcLang);
-      cache.set(key, r.text);
-      saveSharedSoon();
-      return { ok: true, text: r.text, ms: r.ms };
-    } catch (e) {
-      if (e.code !== 'NO_KEY') recordUsage(null, 0, true);
-      throw e;
-    }
+    // 같은 줄을 다른 탭이 지금 요청 중이면 그 답을 같이 기다린다 (같은 영상 두 탭 — 실제 키 실측에서 두 배로 나감)
+    if (inflight.has(key)) return { ...(await inflight.get(key)), cached: true };
+    const job = (async () => {
+      if (overCap(await today(), cfg.dailyCapUsd, cfg.priceIn, cfg.priceOut)) throw err('CAP', '오늘 비용 상한');
+      if (!claudeRate.tryTake()) throw err('LOCAL_RATE', `1분에 ${CLAUDE_PER_MIN}번 넘게 요청함`);
+      try {
+        const r = await callClaude(msg.text, msg.context || [], cfg, packsOf(msg), TIMEOUT_MS, srcLang);
+        cache.set(key, r.text);
+        saveSharedSoon();
+        return { ok: true, text: r.text, ms: r.ms };
+      } catch (e) {
+        if (e.code !== 'NO_KEY') recordUsage(null, 0, true);
+        throw e;
+      }
+    })();
+    inflight.set(key, job);
+    try { return await job; } finally { inflight.delete(key); }
   },
 
   async 'f1ko-batch'(msg) {
