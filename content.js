@@ -1115,7 +1115,12 @@
       }
     }
     return {
-      url: location.href, frame: window === top ? 'top' : 'iframe', site: S.site?.id || '', videos: document.querySelectorAll('video').length,
+      // 주소는 경로까지만 — 강의 사이트 주소의 ?token= 같은 값이 이슈에 붙여 넣어지지 않게
+      url: location.origin + location.pathname, version: chrome.runtime.getManifest().version,
+      chrome: (navigator.userAgent.match(/Chrome\/([\d.]+)/) || [])[1] || '',
+      enabled: S.enabled, engine: shownEngine(), listen: S.listen ? S.listen.lang || true : false,
+      blocks: Object.fromEntries(Object.entries(S.block).filter(([, b]) => Date.now() < b.until).map(([e, b]) => [e, b.code])),
+      frame: window === top ? 'top' : 'iframe', site: S.site?.id || '', videos: document.querySelectorAll('video').length,
       source: S.source, picked: S.pickSel, mode: S.mode, vod: S.vod ? S.vod.cues.length : 0, packs: S.packs,
       shadowHosts: [...document.querySelectorAll('*')].filter(e => e.shadowRoot).slice(0, 10).map(e => e.tagName.toLowerCase()),
       elements: els, tracks
