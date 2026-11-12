@@ -418,7 +418,8 @@ async function saveGlossary(msgText = '저장됨', undo = false) {
   await chrome.storage.local.set({ glossary });
   renderGlossary();
   $('glMsg').textContent = msgText;
-  setTimeout(() => ($('glMsg').textContent = ''), 2000);
+  clearTimeout(saveGlossary.t);
+  saveGlossary.t = setTimeout(() => ($('glMsg').textContent = ''), 3000);
 }
 
 $('glPacks').addEventListener('click', e => { const id = e.target.closest('button')?.dataset.pack; if (id != null) { glPack = id; glGroup = ''; renderGlossary(); } });
@@ -442,9 +443,13 @@ $('glKind').addEventListener('change', () => { $('glKo').disabled = $('glKind').
 $('glAdd').addEventListener('click', () => {
   const c = cleanEntry({ en: $('glEn').value, ko: $('glKo').value, kind: $('glKind').value, group: glGroup });
   if (!c) { $('glMsg').textContent = '영어와 (그대로가 아니면) 한국어를 둘 다 넣어 주세요'; return; }
-  (glossary.packs[glPack] ||= []).push(c);
+  const list = (glossary.packs[glPack] ||= []);
+  // 같은 영어(대소문자 무시)가 이미 있으면 뒤에 붙이지 않고 그 줄을 바꾼다 (붙이면 정리 때 새 줄이 조용히 버려짐)
+  const i = list.findIndex(x => String(x.en || '').toLowerCase() === c.en.toLowerCase());
+  if (i >= 0) list[i] = { ...c, group: c.group || list[i].group || '' };
+  else list.push(c);
   $('glEn').value = $('glKo').value = '';
-  saveGlossary('추가함');
+  saveGlossary(i >= 0 ? `이미 있던 “${list[i].en}” 항목을 새 내용으로 바꿨어요` : '추가함');
 });
 
 // 내보내기
