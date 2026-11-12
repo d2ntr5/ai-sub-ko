@@ -82,8 +82,15 @@ async function saveSync(patch) {
 
 $('ytGlossary').addEventListener('change', e => saveSync({ ytGlossary: e.target.value }));
 for (const id of ['chromeFallback', 'ytAsr', 'ytPreferKo', 'filmTone', 'filmNames', 'filmShort']) $(id).addEventListener('change', e => saveSync({ [id]: e.target.checked }));
-for (const id of ['cap', 'priceIn', 'priceOut']) {
-  $(id).addEventListener('change', () => saveSync({ dailyCapUsd: $('cap').value, priceIn: $('priceIn').value, priceOut: $('priceOut').value }).then(renderUsage));
+// 숫자 칸: 비우거나 이상한 값이면 저장하지 않고 원래 값으로 (빈칸이 0 = 상한 없음으로 저장되면 안 됨). 범위 밖은 끝값으로
+const NUM_FIELDS = { cap: 'dailyCapUsd', priceIn: 'priceIn', priceOut: 'priceOut' };
+for (const [id, key] of Object.entries(NUM_FIELDS)) {
+  $(id).addEventListener('change', () => {
+    const raw = $(id).value.trim();
+    const n = raw === '' ? NaN : Number(raw);
+    if (!Number.isFinite(n) || n < 0) { $(id).value = cfg[key]; return; }
+    saveSync({ [key]: n }).then(() => { $(id).value = cfg[key]; if (cfg[key] !== n) chrome.storage.sync.set({ [key]: cfg[key] }); renderUsage(); });
+  });
 }
 
 // ===== 엔진 카드: 키 상태 =====

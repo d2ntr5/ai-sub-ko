@@ -13,6 +13,10 @@ import { exportPacks, toJSON, toCSV, parseCSV, parseImport, previewImport, apply
 
 test('설정 정리', () => {
   assert.deepEqual(normalize({}), SYNC_DEFAULTS);
+  assert.equal(normalize({ dailyCapUsd: '' }).dailyCapUsd, SYNC_DEFAULTS.dailyCapUsd, '빈 상한 칸은 0(없음)이 아니라 기본값');
+  assert.equal(normalize({ dailyCapUsd: '-5' }).dailyCapUsd, 0);
+  assert.equal(normalize({ dailyCapUsd: '2.5' }).dailyCapUsd, 2.5);
+  assert.equal(normalize({ priceIn: '' }).priceIn, SYNC_DEFAULTS.priceIn);
   const s = normalize({ bottomPct: 99, fontScale: 'x', lines: 1.6, displayMode: '?', model: 'other', priceIn: -1, chromeFallback: 'x', siteOn: { f1: false, bad: 1 }, customSites: ['Ex.com', 'ex.com', 'bad host', 3] });
   assert.equal(s.bottomPct, 40);
   assert.equal(s.fontScale, SYNC_DEFAULTS.fontScale);

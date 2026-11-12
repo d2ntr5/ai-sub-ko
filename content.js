@@ -1007,6 +1007,7 @@
 
   document.addEventListener('keydown', e => {
     if (!e.altKey || e.ctrlKey || e.metaKey || !root || !S.siteOn) return;
+    if (isTyping(e)) return; // 댓글 · 검색 칸에 글을 쓰는 중이면 ⌥ 글자(˚ · ø 등)를 그대로 입력하게
     // 맥에서 ⌥K 는 e.key 가 '˚' 로 들어오므로 물리 키(e.code)로 본다
     if (e.code === 'KeyK') { e.preventDefault(); chrome.storage.local.set({ enabled: !S.enabled }); }
     if (e.code === 'KeyO') {
@@ -1015,6 +1016,25 @@
       chrome.storage.sync.set({ showEn: next });
       showMsg(next ? '영어 원문 보이기' : '영어 원문 숨기기', 1500);
     }
+  }, true);
+
+  function isTyping(e) {
+    const t = e.composedPath?.()[0] || e.target;
+    if (!t || t.nodeType !== 1) return false;
+    if (t.isContentEditable) return true;
+    if (t.tagName === 'TEXTAREA') return !t.readOnly && !t.disabled;
+    if (t.tagName === 'INPUT') return !t.readOnly && !t.disabled && !/^(button|checkbox|radio|range|submit|reset|file|color|image)$/i.test(t.type);
+    return false;
+  }
+
+  // 영상 src 가 바뀌어 새로 불러오기 시작: 다음 시계(tick)를 기다리지 않고 그 전 영상 자막을 바로 지움
+  document.addEventListener('loadstart', e => {
+    if (e.target?.tagName !== 'VIDEO' || !S.enabled || !box || S.listen) return;
+    clearTimeout(S.timer);
+    clearTimeout(S.holdTimer);
+    S.seq += 1;
+    S.curSrc = ''; S.lastOut = ''; S.vodShown = -1;
+    setLines('', '', '');
   }, true);
 
   // 되감기·건너뛰기: 한 줄씩 번역 중이던 자막은 바로 지운다 (미리 번역은 시각으로 다시 맞춤)
