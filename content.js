@@ -203,9 +203,40 @@
     placeBox();
   }
 
+  // ===== 열린 Shadow DOM 안의 플레이어 (mux-player 같은 웹 컴포넌트) =====
+  // 문서에 <video> 가 없을 때만 2초마다 찾는다 (보통 페이지에서는 비용 없음)
+  let shadowRoots = [], shadowScanAt = 0;
+  function openShadowRoots() {
+    if (document.querySelector('video')) return (shadowRoots = []);
+    if (Date.now() - shadowScanAt < 2000) return shadowRoots;
+    shadowScanAt = Date.now();
+    const out = [];
+    const walk = r => { for (const el of r.querySelectorAll('*')) if (el.shadowRoot) { out.push(el.shadowRoot); walk(el.shadowRoot); } };
+    walk(document);
+    for (const sr of out) if (!hooked.has(sr)) hookShadow(sr);
+    return (shadowRoots = out);
+  }
+  const hooked = new WeakSet();
+  function hookShadow(sr) {
+    hooked.add(sr);
+    sr.addEventListener('loadstart', onLoadStart, true);
+    sr.addEventListener('seeking', onSeeking, true);
+    // 사이트 자막 숨기기: 문서의 CSS 는 Shadow DOM 안으로 들어가지 않으므로 같은 규칙을 넣는다
+    const st = document.createElement('style');
+    st.textContent = `${CAPTION_SELECTORS.map(x => `:host-context(.f1ko-hide-original) ${x}`).join(',\n')} { opacity: 0 !important; }`;
+    sr.appendChild(st);
+  }
+  /** 문서 + 열린 Shadow DOM 에서 찾기 */
+  function deepAll(sel) {
+    const list = [...document.querySelectorAll(sel)];
+    for (const r of openShadowRoots()) list.push(...r.querySelectorAll(sel));
+    return list;
+  }
+  const allVideos = () => deepAll('video');
+
   function mainVideo() {
     let best = null, area = 0;
-    for (const v of document.querySelectorAll('video')) {
+    for (const v of allVideos()) {
       const r = v.getBoundingClientRect();
       if (r.width * r.height > area) { best = v; area = r.width * r.height; }
     }
@@ -348,7 +379,7 @@
     document.documentElement.classList.toggle('f1ko-hide-original', hide);
     if (!pickStyle && S.pickSel) { pickStyle = document.createElement('style'); document.documentElement.appendChild(pickStyle); }
     if (pickStyle) pickStyle.textContent = hide && S.pickSel ? `${S.pickSel} { opacity: 0 !important; }` : '';
-    for (const v of document.querySelectorAll('video')) {
+    for (const v of allVideos()) {
       for (const tr of v.textTracks || []) {
         if (hide && tr.mode === 'showing' && /subtitles|captions/.test(tr.kind)) {
           tr.mode = 'hidden';           // 화면에서만 숨김 — activeCues 는 계속 들어온다
@@ -707,14 +738,14 @@
     const sels = S.pickSel ? [S.pickSel, ...CAPTION_SELECTORS] : CAPTION_SELECTORS;
     for (const sel of sels) {
       let els;
-      try { els = document.querySelectorAll(sel); } catch { continue; } // 고른 선택자가 깨졌으면 건너뜀
+      try { els = deepAll(sel); } catch { continue; } // 고른 선택자가 깨졌으면 건너뜀
       for (const el of els) {
         if ((root && root.contains(el)) || !rendered(el) || el.closest(CAPTION_HINT)) continue;
         const t = SEG.clean(sourceText(el));
         if (t) { S.source = sel === S.pickSel ? '직접 고른 자막 위치' : `요소 ${sel}`; return t; }
       }
     }
-    for (const v of document.querySelectorAll('video')) {
+    for (const v of allVideos()) {
       // 영어 트랙 먼저. 언어가 적힌 다른 언어 트랙(스페인어 등)은 읽지 않는다
       const tracks = [...(v.textTracks || [])].filter(tr => tr.mode !== 'disabled' && /subtitles|captions/.test(tr.kind || 'subtitles'));
       const en = tracks.filter(isEnTrack);
@@ -731,7 +762,7 @@
   /** 나중에 붙은 자막 트랙(다음 강의 등)도 숨김 설정이면 화면에서 숨긴다 */
   function hideNewTracks() {
     if (!(S.enabled && S.siteOn && S.cfg.hideOriginal && !S.koHuman)) return;
-    for (const v of document.querySelectorAll('video')) {
+    for (const v of allVideos()) {
       for (const tr of v.textTracks || []) {
         if (tr.mode === 'showing' && /subtitles|captions/.test(tr.kind)) { tr.mode = 'hidden'; S.hiddenTracks.add(tr); }
       }
@@ -744,7 +775,7 @@
 
   /** 영어 트랙이 있는데 꺼져 있고(다른 언어 트랙이 기본) 켜진 영어 트랙이 없으면, 화면에 안 보이게(hidden) 켜서 줄을 받는다 */
   function ensureEnTrack() {
-    for (const v of document.querySelectorAll('video')) {
+    for (const v of allVideos()) {
       const subs = [...(v.textTracks || [])].filter(tr => /subtitles|captions/.test(tr.kind));
       const en = subs.filter(isEnTrack);
       if (!en.length || en.some(tr => tr.mode !== 'disabled')) continue;
@@ -1043,17 +1074,17 @@
   }
 
   // 영상 src 가 바뀌어 새로 불러오기 시작: 다음 시계(tick)를 기다리지 않고 그 전 영상 자막을 바로 지움
-  document.addEventListener('loadstart', e => {
+  function onLoadStart(e) {
     if (e.target?.tagName !== 'VIDEO' || !S.enabled || !box || S.listen) return;
     clearTimeout(S.timer);
     clearTimeout(S.holdTimer);
     S.seq += 1;
     S.curSrc = ''; S.lastOut = ''; S.vodShown = -1;
     setLines('', '', '');
-  }, true);
+  }
 
   // 되감기·건너뛰기: 한 줄씩 번역 중이던 자막은 바로 지운다 (미리 번역은 시각으로 다시 맞춤)
-  document.addEventListener('seeking', e => {
+  function onSeeking(e) {
     if (e.target?.tagName !== 'VIDEO' || !S.enabled) return;
     S.seg = new SEG.Segmenter();
     S.lastOut = '';             // 건너뛴 뒤에는 그 전 장면 자막을 윗줄에 두지 않음
@@ -1063,7 +1094,10 @@
     S.curSrc = '';
     S.vodShown = -1;
     setLines('', '', '');
-  }, true);
+  }
+  // 영상 이벤트는 Shadow DOM 밖으로 나오지 않는다 → 문서와 열린 Shadow DOM 마다 붙인다 (hookShadow)
+  document.addEventListener('loadstart', onLoadStart, true);
+  document.addEventListener('seeking', onSeeking, true);
 
   // ===== 팝업과 대화 (영상이 있는 프레임만 대답) =====
   chrome.runtime.onMessage.addListener((m, _s, sendResponse) => {
@@ -1121,7 +1155,7 @@
       if (els.length >= 25) break;
     }
     const tracks = [];
-    for (const v of document.querySelectorAll('video')) {
+    for (const v of allVideos()) {
       for (const tr of v.textTracks || []) {
         tracks.push({ kind: tr.kind, label: tr.label, lang: tr.language, mode: tr.mode, cues: tr.cues?.length || 0, active: tr.activeCues ? [...tr.activeCues].map(c => c.text).join(' / ').slice(0, 120) : '' });
       }
@@ -1132,7 +1166,7 @@
       chrome: (navigator.userAgent.match(/Chrome\/([\d.]+)/) || [])[1] || '',
       enabled: S.enabled, engine: shownEngine(), listen: S.listen ? S.listen.lang || true : false,
       blocks: Object.fromEntries(Object.entries(S.block).filter(([, b]) => Date.now() < b.until).map(([e, b]) => [e, b.code])),
-      frame: window === top ? 'top' : 'iframe', site: S.site?.id || '', videos: document.querySelectorAll('video').length,
+      frame: window === top ? 'top' : 'iframe', site: S.site?.id || '', videos: allVideos().length,
       source: S.source, picked: S.pickSel, mode: S.mode, vod: S.vod ? S.vod.cues.length : 0, packs: S.packs,
       shadowHosts: [...document.querySelectorAll('*')].filter(e => e.shadowRoot).slice(0, 10).map(e => e.tagName.toLowerCase()),
       elements: els, tracks
@@ -1149,7 +1183,7 @@
 
   // 영상이 있는 프레임에서만 화면을 붙인다
   const boot = setInterval(() => {
-    if (document.querySelector('video')) {
+    if (allVideos().length) {
       clearInterval(boot); mountUI();
       loadSettings().then(async () => {
         // 음성 번역 중인 탭에서 페이지가 바뀌면 (탭 소리는 계속 받는 중) 이어서 보여 준다
