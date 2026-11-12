@@ -8,15 +8,16 @@
   window.__f1ko = true;
 
   const load = p => import(chrome.runtime.getURL(p));
-  const [SET, G, SEG, ERR, COST, SITES, VOD, LIS] = await Promise.all([
+  const [SET, G, SEG, ERR, COST, SITES, VOD, LIS, GUARD] = await Promise.all([
     load('lib/settings.js'), load('lib/glossary.js'), load('lib/segment.js'), load('lib/errors.js'),
-    load('lib/cost.js'), load('lib/sites.js'), load('lib/vod.js'), load('lib/listen.js')
+    load('lib/cost.js'), load('lib/sites.js'), load('lib/vod.js'), load('lib/listen.js'), load('lib/guard.js')
   ]);
   const { normalize, pickEngine, hasKey, ENGINE_BADGE, ENGINE_NAMES } = SET;
 
   const POLL_MS = 200;
   const CONTEXT_LINES = 4;            // 한 줄 번역에 넘길 직전 원문 줄 수
   const SOFT_COOLDOWN_MS = 60_000;    // 일시 오류 때 대신 번역으로 버티는 시간
+  const SEEK_SETTLE_MS = 400;         // 되감은 뒤 플레이어가 자막 글자를 바꿀 때까지 원문을 읽지 않음 (옛 줄이 다시 번역되지 않게)
   const CLEAR_GRACE_MS = 300;         // 원문 자막이 사라지면 이만큼만 기다렸다 한국어 자막도 지움 (바뀌는 순간의 깜빡임 흡수)
   const NO_CAPTION_WARN_MS = 10_000;  // 켜고 이만큼 자막이 안 잡히면 안내
   const YT_ORIGINAL_MS = 1000;        // YouTube: 이 간격으로 플레이어 자막이 자동 번역(영어 >> 한국어)인지 보고 영어 원문으로 돌림
@@ -84,6 +85,9 @@
     ms: [],
     fails: 0,
     hiddenTracks: new Set(),
+    lastInputAt: Date.now(),    // 마지막 사용자 조작 (오래 없으면 AI 번역을 쉼)
+    resting: '',                // 'idle' = 오래 조작이 없어 AI 번역을 쉬는 중
+    seekAt: 0,
     wokeTracks: new Set(),      // 우리가 hidden 으로 켠 영어 트랙 (끌 때 다시 disabled)
     chromeN: 0, chromeMs: 0
   };
@@ -334,6 +338,20 @@
   const fallbackEngine = () => (S.cfg.chromeFallback ? 'chrome' : null);
 
   /** 지금 쓸 엔진: 팝업에서 고른 것(키가 있을 때) > 자동 (일반 영상 Flash Lite → Claude → 크롬, 라이브 Claude → 크롬) */
+  // ===== 토큰 새는 것 막기 (1.0.17): 안 보는 탭 · 오래 조작 없음 =====
+  function aiPause() {
+    return GUARD.pauseReason({ hidden: document.visibilityState === 'hidden', pip: !!document.pictureInPictureElement, lastInputAt: S.lastInputAt });
+  }
+  function markInput() {
+    S.lastInputAt = Date.now();
+    if (S.resting === 'idle') {
+      S.resting = '';
+      showMsg('AI 번역을 다시 해요', 2000, true);
+      maybeRunVod();
+    }
+  }
+  for (const t of ['pointerdown', 'pointermove', 'keydown', 'wheel', 'touchstart']) addEventListener(t, markInput, { capture: true, passive: true });
+
   function lineEngine() {
     return pickEngine(S.listen ? 'live' : S.mode, S.keys, S.override); // 음성 번역은 라이브 순서 (자막 전체가 없음)
   }
@@ -459,7 +477,7 @@
   async function translateApi(engine, text) {
     const res = await chrome.runtime.sendMessage({ type: 'f1ko-translate', text, context: S.history.slice(-CONTEXT_LINES), packs: S.packs, srcLang: srcLang() });
     if (!res || !res.ok) throw Object.assign(new Error(res?.error || '응답 없음'), { code: res?.code || 'API_ERROR' });
-    S.ms.push(res.ms); if (S.ms.length > 30) S.ms.shift();
+    if (!res.cached) { S.ms.push(res.ms); if (S.ms.length > 30) S.ms.shift(); }
     return res.text;
   }
 
@@ -485,7 +503,7 @@
     const waitingLite = !S.listen && lineEngine() === 'lite' && usable('lite');
     for (const e of lineChain()) {
       if (!e) break;
-      if (e !== 'chrome' && !usable(e)) continue;
+      if (e !== 'chrome' && (!usable(e) || aiPause())) continue; // 안 보는 탭 · 오래 조작 없음: AI 는 부르지 않음 (크롬 내장은 무료)
       try {
         out = e === 'chrome' ? await translateChrome(text, waitingLite) : await translateApi(e, text);
         if (S.used !== e) { S.used = e; updateBadge(); }
@@ -534,13 +552,13 @@
   async function maybeRunVod() {
     const v = S.vod;
     if (!v || v.done || v.running || v.loading || !S.enabled || !S.siteOn || S.koHuman || S.listen) return;
-    if (lineEngine() !== 'lite' || !usable('lite')) return;
+    if (lineEngine() !== 'lite' || !usable('lite') || aiPause()) return; // 안 보는 탭에서 연 영상은 무료 한도를 쓰지 않음
     v.running = true;
     const n = v.cues.length;
     const all = VOD.batchRanges(n, BATCH);
     const left = r => !v.failed.has(`${r[0]}-${r[1]}`) && !v.tr.slice(r[0], r[1]).every(Boolean);
     for (;;) {
-      if (S.vod !== v || !S.enabled || lineEngine() !== 'lite' || !usable('lite')) break;
+      if (S.vod !== v || !S.enabled || lineEngine() !== 'lite' || !usable('lite') || aiPause()) break;
       // 묶음마다 지금 재생 위치에서 다시 고른다 — 번역 중에 뒤로 건너뛰면 그 자리 묶음을 먼저
       const next = VOD.orderFrom(all, v.cues, mainVideo()?.currentTime || 0).find(left);
       if (!next) break;
@@ -797,6 +815,12 @@
     if (S.enabled) placeBtn(); // 한국어 자막을 보여 주는 중·자동 생성 자막 건너뜀일 때도 버튼은 상단 바 옆에
     if (S.enabled && S.siteOn && S.cfg.listenWhen === 'always' && !S.listenAsked) suggestListen();
     if (!S.enabled || !S.siteOn || S.koHuman || S.skipAsr || S.picking) return;
+    const why = aiPause();
+    if (why === 'hidden') return; // 안 보이는 탭: 자막을 읽지도 번역하지도 않음 (볼 사람이 없음)
+    if (why === 'idle' && S.resting !== 'idle') {
+      S.resting = 'idle';
+      showMsg('3시간 동안 조작이 없어 AI 번역(Claude · Gemini)을 쉬고 있어요 · 마우스를 움직이거나 키를 누르면 다시 해요', 0, true);
+    }
     placeBox();
     hideNewTracks();
     ensureEnTrack();
@@ -812,7 +836,7 @@
     keepYtOriginal();
     if (S.vod && !S.vod.done && !S.vod.running && !S.vod.loading) maybeRunVod(); // 일시 오류로 멈췄던 미리 번역 다시
     if (S.vod && lineEngine() === 'lite' && renderVod()) return;
-    let src = readSource();
+    let src = Date.now() - S.seekAt < SEEK_SETTLE_MS ? '' : readSource();
     if (SEG.isKorean(src)) src = ''; // 한국어 자막은 번역하지 않는다
     if (src) S.lastSeenAt = Date.now();
     else if (!S.warned && Date.now() - Math.max(S.enabledAt, S.lastSeenAt) > NO_CAPTION_WARN_MS) {
@@ -1089,6 +1113,7 @@
     S.seg = new SEG.Segmenter();
     S.lastOut = '';             // 건너뛴 뒤에는 그 전 장면 자막을 윗줄에 두지 않음
     S.seeked = true;
+    S.seekAt = Date.now();
     clearSoon();
     clearTimeout(S.holdTimer);  // 건너뛰면 기다리지 않고 바로 지움 (그 전 장면 자막이 잠깐 남지 않게)
     S.curSrc = '';

@@ -414,3 +414,21 @@ test('isKorean: 이미 한국어인 자막은 번역 원문이 아님', () => {
   assert.equal(isKorean('Sam Altman 이 말했다 that ChatGPT uses water'), false);
   assert.equal(isKorean(''), false);
 });
+
+test('토큰 아끼기: 쉬는 이유 · 분당 창 · 기억', async () => {
+  const { pauseReason, RateWindow, LruCache, cacheKey, UNATTENDED_MS } = await import('../lib/guard.js');
+  const now = 10 * UNATTENDED_MS;
+  assert.equal(pauseReason({ hidden: true, lastInputAt: now, now }), 'hidden');
+  assert.equal(pauseReason({ hidden: true, pip: true, lastInputAt: now, now }), '', '화면 속 화면은 보고 있음');
+  assert.equal(pauseReason({ lastInputAt: now - UNATTENDED_MS - 1, now }), 'idle');
+  assert.equal(pauseReason({ lastInputAt: now - 60_000, now }), '');
+  const w = new RateWindow(3, 1000);
+  assert.deepEqual([0, 10, 20, 30].map(t => w.tryTake(t)), [true, true, true, false]);
+  assert.equal(w.tryTake(1001), true, '창이 지나면 다시');
+  const c = new LruCache(2);
+  c.set('a', '1'); c.set('b', '2'); c.get('a'); c.set('c', '3');
+  assert.deepEqual(c.entries().map(([k]) => k), ['a', 'c'], '오래 안 쓴 b 를 버림');
+  assert.equal(new LruCache(5, [['x', 'y'], [1, 2]]).size, 1, '이상한 항목은 버림');
+  assert.notEqual(cacheKey({ model: 'm', packs: ['common'], text: 'hi' }), cacheKey({ model: 'm', packs: ['common', 'f1'], text: 'hi' }));
+  assert.equal(cacheKey({ model: 'm', packs: ['common'], text: ' hi ' }), cacheKey({ model: 'm', packs: ['common'], text: 'hi' }));
+});
