@@ -20,9 +20,9 @@ function area(name) {
 const registered = [];
 const injected = [];
 // 음성 번역(1.0)용 가짜: offscreen 문서 · 탭 소리 · 탭 메시지 · 단축키
-const fake = { offscreen: false, offReplies: {}, toOff: [], toTab: [], badge: {}, captureError: null, commands: [], contentPresent: true, permAdded: [], installed: [], granted: new Set() };
+const fake = { changed: [], offscreen: false, offReplies: {}, toOff: [], toTab: [], badge: {}, captureError: null, commands: [], contentPresent: true, permAdded: [], installed: [], granted: new Set() };
 globalThis.chrome = {
-  storage: { sync: area('sync'), local: area('local'), session: area('session') },
+  storage: { sync: area('sync'), local: area('local'), session: area('session'), onChanged: { addListener: f => fake.changed.push(f) } },
   runtime: {
     onMessage: { addListener: f => listeners.push(f) },
     onInstalled: { addListener: f => fake.installed.push(f) },
@@ -339,6 +339,34 @@ test('음성 번역 원문이 일본어면 Claude 지시문에 일본어 규칙'
   store.local.apiKey = 'sk-ant-test';
   await send({ type: 'f1ko-translate', text: 'ルクレールがピットに入ります', srcLang: 'ja', packs: ['common', 'f1'] });
   assert.match(calls.at(-1).body.system[0].text, /원문이 일본어인 자막/);
-  await send({ type: 'f1ko-translate', text: 'Box box', packs: ['common', 'f1'] });
+  await send({ type: 'f1ko-translate', text: 'Leclerc pits now', packs: ['common', 'f1'] });
   assert.doesNotMatch(calls.at(-1).body.system[0].text, /원문이 일본어인 자막/);
+});
+
+test('토큰 아끼기: 같은 줄은 탭 · 새로고침이 달라도 다시 사지 않음, 용어집이 바뀌면 버림', async () => {
+  store.local.apiKey = 'sk-ant-test';
+  reply = () => ({ status: 200, body: { content: [{ type: 'text', text: '{"ko":"줄"}' }], usage: { input_tokens: 10, output_tokens: 1 } } });
+  const n0 = calls.length;
+  const a = await send({ type: 'f1ko-translate', text: 'Shared line one', packs: ['common'] });
+  const b = await send({ type: 'f1ko-translate', text: 'Shared line one', context: ['other context'], packs: ['common'] });
+  assert.equal(calls.length - n0, 1, '두 번째는 기억에서');
+  assert.equal(b.cached, true);
+  assert.equal(b.text, a.text);
+  await send({ type: 'f1ko-translate', text: 'Shared line one', packs: ['common', 'cloud'] });
+  assert.equal(calls.length - n0, 2, '묶음이 다르면 따로');
+  await new Promise(r => setTimeout(r, 2100));
+  assert.ok(Array.isArray(store.session.trCache) && store.session.trCache.length >= 2, 'storage.session 에 남김 (서비스 워커가 쉬어도)');
+  for (const f of fake.changed) f({ glossary: {} }, 'local');
+  await send({ type: 'f1ko-translate', text: 'Shared line one', packs: ['common'] });
+  assert.equal(calls.length - n0, 3, '용어집이 바뀌면 다시 번역');
+});
+
+test('토큰 아끼기: Claude 분당 상한을 넘으면 LOCAL_RATE (API 안 부름)', async () => {
+  store.local.apiKey = 'sk-ant-test';
+  reply = () => ({ status: 200, body: { content: [{ type: 'text', text: '{"ko":"줄"}' }], usage: { input_tokens: 10, output_tokens: 1 } } });
+  let codes = [];
+  const n0 = calls.length;
+  for (let i = 0; i < 70; i++) codes.push((await send({ type: 'f1ko-translate', text: `rate line ${i}`, packs: ['common'] })).code || 'ok');
+  assert.ok(codes.includes('LOCAL_RATE'));
+  assert.ok(calls.length - n0 <= 60, `API 는 60번까지 (${calls.length - n0})`);
 });

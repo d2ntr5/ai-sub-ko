@@ -6,6 +6,7 @@ import { hintPhrases, BOOST, captureReason } from './lib/listen.js';
 import { API_URL, MODELS_URL, buildSystemPrompt, buildRequestBody, buildHeaders, extractText, pickClaudeModels } from './lib/prompt.js';
 import { classify } from './lib/errors.js';
 import { dayKey, addUsage, emptyDay, overCap, pruneDays, ptDayKey, emptyGeminiDay } from './lib/cost.js';
+import { RateWindow, LruCache, cacheKey, CLAUDE_PER_MIN, SHARED_CACHE_MAX } from './lib/guard.js';
 import { GEMINI_BASE, geminiHeaders, buildBatchSystem, buildBatchBody, parseBatch, geminiUsage, classifyGemini, pickGeminiModels } from './lib/gemini.js';
 
 const TIMEOUT_MS = 5000;        // 자막은 늦으면 의미가 없다 → 5초 넘으면 대신 번역
@@ -26,6 +27,30 @@ async function getConfig() {
 }
 
 const packsOf = msg => (Array.isArray(msg.packs) && msg.packs.length ? msg.packs : ['common', 'f1']);
+
+// ===== 토큰 새는 것 막기 (1.0.17) =====
+// 분당 상한: 탭 여러 개 · 고장 난 반복이 한꺼번에 부르는 것을 막는다 (넘으면 1분 동안 대신 번역)
+const claudeRate = new RateWindow(CLAUDE_PER_MIN);
+// 같이 쓰는 번역 기억: 같은 줄을 다른 탭 · 새로고침 · 되감기 뒤에 다시 사지 않게. 크롬을 끄면 지워짐 (storage.session)
+let shared = null, sharedSaveTimer = 0;
+async function sharedCache() {
+  if (!shared) {
+    const { trCache = [] } = await chrome.storage.session.get('trCache').catch(() => ({}));
+    shared = new LruCache(SHARED_CACHE_MAX, Array.isArray(trCache) ? trCache : []);
+  }
+  return shared;
+}
+function saveSharedSoon() {
+  clearTimeout(sharedSaveTimer);
+  sharedSaveTimer = setTimeout(() => chrome.storage.session.set({ trCache: shared.entries() }).catch(() => {}), 2000);
+}
+// 용어집 · 모델 · 영화 설정이 바뀌면 기억한 번역은 버린다 (옛 용어로 나오지 않게)
+chrome.storage.onChanged.addListener((ch, area) => {
+  if (Object.keys(ch).some(k => ['glossary', 'model', 'filmTone', 'filmNames', 'filmShort'].includes(k))) {
+    shared = new LruCache(SHARED_CACHE_MAX);
+    chrome.storage.session.remove('trCache').catch(() => {});
+  }
+});
 
 // ===== 사용량 (동시 요청이 서로 덮어쓰지 않게 차례로) =====
 let usageChain = Promise.resolve();
@@ -363,9 +388,17 @@ const handlers = {
 
   async 'f1ko-translate'(msg) {
     const cfg = await getConfig();
+    const srcLang = msg.srcLang === 'ja' ? 'ja' : 'en';
+    const key = cacheKey({ model: cfg.model, packs: packsOf(msg), srcLang, text: msg.text });
+    const cache = await sharedCache();
+    const hit = cache.get(key);
+    if (hit !== undefined) return { ok: true, text: hit, ms: 0, cached: true };
     if (overCap(await today(), cfg.dailyCapUsd, cfg.priceIn, cfg.priceOut)) throw err('CAP', '오늘 비용 상한');
+    if (!claudeRate.tryTake()) throw err('LOCAL_RATE', `1분에 ${CLAUDE_PER_MIN}번 넘게 요청함`);
     try {
-      const r = await callClaude(msg.text, msg.context || [], cfg, packsOf(msg), TIMEOUT_MS, msg.srcLang === 'ja' ? 'ja' : 'en');
+      const r = await callClaude(msg.text, msg.context || [], cfg, packsOf(msg), TIMEOUT_MS, srcLang);
+      cache.set(key, r.text);
+      saveSharedSoon();
       return { ok: true, text: r.text, ms: r.ms };
     } catch (e) {
       if (e.code !== 'NO_KEY') recordUsage(null, 0, true);
