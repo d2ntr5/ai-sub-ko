@@ -1,6 +1,7 @@
 # 크롬 웹 스토어 등록정보 (ai-sub-ko 1.0.1)
 
 2026-11-11 준비. 업로드 · 제출은 게시자가 직접 한다.
+**게시됨 (1.0.1, 2026-11-12)**: https://chromewebstore.google.com/detail/ckifmgaaeodbodmpoigiadfmfecpodli — 공개 · 대한민국 · 무료.
 대시보드 칸에 그대로 붙여 넣는 글. 「확인 전」은 대시보드 화면에서 직접 확인할 것.
 
 ## 올릴 zip
