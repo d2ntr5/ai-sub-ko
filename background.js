@@ -1,7 +1,7 @@
 // ai-sub-ko — background service worker (module)
 // Claude·Gemini API 는 여기서만 부른다: API 키가 페이지에 노출되지 않게.
 import { normalize, MODELS, GEMINI_DEFAULTS, GEMINI_LIMITS } from './lib/settings.js';
-import { DEFAULT_GLOSSARY, sanitizeGlossary, entriesFor } from './lib/glossary.js';
+import { DEFAULT_GLOSSARY, sanitizeGlossary, entriesFor, usePacks } from './lib/glossary.js';
 import { hintPhrases, BOOST, captureReason } from './lib/listen.js';
 import { API_URL, MODELS_URL, buildSystemPrompt, buildRequestBody, buildHeaders, extractText, pickClaudeModels } from './lib/prompt.js';
 import { classify } from './lib/errors.js';
@@ -285,7 +285,7 @@ async function listenStart(tabId, streamId = null, lang = null) {
   if (!(await ensureContent(tabId))) return { ok: false, reason: 'page' };
   let packs = ['common'];
   try { const st = await chrome.tabs.sendMessage(tabId, { type: 'f1ko-status' }); if (Array.isArray(st?.packs)) packs = st.packs; } catch { /* 기본 */ }
-  const phrases = cfg.listenHints ? hintPhrases(entriesFor(cfg.glossary, packs), lang) : [];
+  const phrases = cfg.listenHints ? hintPhrases(entriesFor(cfg.glossary, usePacks(cfg.glossary, packs)), lang) : [];
   await ensureOffscreen();
   const r = await chrome.runtime.sendMessage({ type: 'off-start', tabId, streamId, lang, phrases, boost: BOOST }).catch(e => ({ ok: false, reason: 'unknown', error: e.message }));
   if (!r?.ok) { await closeOffscreenIfIdle(); return r || { ok: false, reason: 'unknown' }; }
