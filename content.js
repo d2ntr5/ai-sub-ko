@@ -183,10 +183,22 @@
     applyLook();
   }
 
-  // 전체 화면일 때는 전체 화면 요소 안에 있어야 보인다
+  // 전체 화면일 때는 전체 화면 요소 안에 있어야 보인다.
+  // 단, <video> 자체가 전체 화면이면(기본 플레이어의 전체 화면 단추) 그 안의 자식은 그려지지 않는다 →
+  // 화면을 body 에 두고 popover 로 맨 위 층(top layer)에 올려 전체 화면 위에 보이게 한다
   function attachRoot() {
-    const host = document.fullscreenElement || document.webkitFullscreenElement || document.body;
+    const fs = document.fullscreenElement || document.webkitFullscreenElement;
+    const replaced = !!fs && /^(VIDEO|CANVAS|IMG)$/.test(fs.tagName);
+    const host = fs && !replaced ? fs : document.body;
     if (root.parentElement !== host) host.appendChild(root);
+    if (replaced && typeof root.showPopover === 'function') {
+      if (!root.popover) root.popover = 'manual';
+      try { root.hidePopover(); } catch { /* 닫혀 있음 */ }
+      try { root.showPopover(); } catch { /* 못 올림 */ }
+    } else if (root.popover) {
+      try { root.hidePopover(); } catch { /* 닫혀 있음 */ }
+      root.removeAttribute('popover');
+    }
     placeBox();
   }
 
