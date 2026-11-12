@@ -42,7 +42,41 @@ function renderSites() {
   $('sites').innerHTML = all.map(s => `<label class="${here?.id === s.id ? 'here' : ''}"><span>${esc(s.name)}${here?.id === s.id ? ' <span class="muted">· 지금 탭</span>' : ''}</span><input type="checkbox" data-site="${esc(s.id)}" ${cfg.siteOn[s.id] === false ? '' : 'checked'} aria-label="${esc(s.name)} 에 적용"></label>`).join('');
   $('siteCount').textContent = `${all.length}곳 · 상세 설정에서 관리`;
   const canAdd = !here && tab?.url && originPattern(tab.url);
-  $('addSite').hidden = $('addHint').hidden = !canAdd;
+  if (canAdd) {
+    addHosts = [originPattern(tab.url).host];
+    $('addSite').textContent = '＋ 이 사이트에서 켜기';
+    $('addHint').textContent = '목록에 없는 사이트를 보고 있을 때 눌러 주세요. 크롬이 이 사이트 권한을 한 번 물어봐요.';
+  } else if (frameHosts.length) {
+    // 영상이 다른 주소의 iframe(강의 사이트의 플레이어 등) 안에 있으면 그 주소에서도 켜야 자막을 읽을 수 있다
+    addHosts = frameHosts;
+    $('addSite').textContent = `＋ 영상 플레이어(${frameHosts.join(' · ')})에서도 켜기`;
+    $('addHint').textContent = `이 페이지의 영상은 다른 주소(${frameHosts.join(' · ')})에서 재생돼요. 그 주소에도 권한을 한 번 물어봐요.`;
+  }
+  $('addSite').hidden = $('addHint').hidden = !canAdd && !frameHosts.length;
+}
+
+/** 이 탭 맨 위 페이지의 큰 iframe 중 아직 켜지 않은 주소 (팝업을 열면 activeTab 으로 잠깐 볼 수 있다) */
+let addHosts = [];
+let frameHosts = [];
+async function probeFrames() {
+  if (tab?.id == null || !/^https?:/.test(tab.url || '')) return;
+  let hosts = [];
+  try {
+    const [r] = await chrome.scripting.executeScript({
+      target: { tabId: tab.id, frameIds: [0] },
+      func: () => [...document.querySelectorAll('iframe')].filter(f => { const b = f.getBoundingClientRect(); return b.width * b.height >= 200 * 120; })
+        .map(f => { try { const u = new URL(f.src, location.href); return /^https?:$/.test(u.protocol) ? u.hostname : ''; } catch { return ''; } })
+    });
+    hosts = Array.isArray(r?.result) ? r.result : [];
+  } catch { return; }
+  const top = new URL(tab.url).hostname;
+  const out = [];
+  for (const h of new Set(hosts.filter(h => h && h !== top))) {
+    const site = siteFor(h, cfg.customSites);
+    const granted = site && !site.custom ? true : await chrome.permissions.contains({ origins: [`https://${h}/*`, `http://${h}/*`] }).catch(() => false);
+    if (!site || !granted) out.push(h);
+  }
+  frameHosts = out.slice(0, 3);
 }
 
 $('sites').addEventListener('change', e => {
@@ -51,18 +85,19 @@ $('sites').addEventListener('change', e => {
 });
 
 $('addSite').addEventListener('click', async () => {
-  const o = originPattern(tab.url);
-  if (!o) return;
-  const patterns = [o.pattern.replace(/^http:/, 'https:'), o.pattern.replace(/^https:/, 'http:')];
+  const hosts = addHosts.slice();
+  if (!hosts.length) return;
+  const patterns = hosts.flatMap(h => [`https://${h}/*`, `http://${h}/*`]);
   // 권한 창이 뜨면 팝업이 닫혀 아래가 실행되지 않는다 → 허락되면 background 가 이어서 더하도록 먼저 알려 둔다
-  await chrome.runtime.sendMessage({ type: 'f1ko-site-pending', host: o.host, tabId: tab.id }).catch(() => {});
+  await chrome.runtime.sendMessage({ type: 'f1ko-site-pending', hosts, tabId: tab.id }).catch(() => {});
   const granted = await chrome.permissions.request({ origins: patterns }).catch(() => false);
   if (!granted) { $('addHint').textContent = '권한을 허락해야 이 사이트에서 쓸 수 있어요.'; return; }
-  await chrome.runtime.sendMessage({ type: 'f1ko-site-add', host: o.host, tabId: tab.id });
+  for (const host of hosts) await chrome.runtime.sendMessage({ type: 'f1ko-site-add', host, tabId: tab.id });
   customGranted = true;
+  frameHosts = [];
   cfg = normalize(await chrome.storage.sync.get(null));
   render();
-  $('where').textContent = `${o.host} 에서 켰어요 · 영상 위 KO 버튼을 확인해 주세요`;
+  $('where').textContent = `${hosts.join(' · ')} 에서 켰어요 · 영상 위 KO 버튼을 확인해 주세요`;
 });
 
 // ===== 번역 엔진 (이 탭에만). 키가 없는 엔진은 고를 수 없다 =====
@@ -143,7 +178,8 @@ async function refreshStatus() {
   renderEngine();
   const dotSrc = $('dotSrc'), dotEng = $('dotEng'), dotGl = $('dotGl');
   if (!st) {
-    $('where').textContent = $('addSite').hidden ? '영상이 있는 탭에서 열어 주세요' : '이 사이트는 아직 목록에 없어요';
+    $('where').textContent = frameHosts.length ? '영상 플레이어가 다른 주소에 있어요 · 아래에서 켜 주세요'
+      : $('addSite').hidden ? '영상이 있는 탭에서 열어 주세요' : '이 사이트는 아직 목록에 없어요';
     dotSrc.className = 'dot'; $('srcText').textContent = '영상이 있는 적용 사이트 탭이 아니에요';
     dotEng.className = 'dot'; $('engText').textContent = `자동: 라이브 ${engineLabel(pickEngine('live', keys))} · 일반 영상 ${engineLabel(pickEngine('vod', keys))}`;
     dotGl.className = 'dot'; $('glText').textContent = '용어집: 사이트·제목을 보고 골라요';
@@ -326,6 +362,7 @@ $('pick').addEventListener('click', async () => {
   const o = tab?.url ? originPattern(tab.url) : null;
   if (o && cfg.customSites.includes(o.host)) customGranted = await chrome.permissions.contains({ origins: [o.pattern] }).catch(() => true);
   render();
+  probeFrames().then(() => { if (frameHosts.length) render(); });
   try { const k = await chrome.runtime.sendMessage({ type: 'f1ko-keys' }); if (k?.ok) keys = { claude: k.claude, gemini: k.gemini }; } catch { /* 그대로 */ }
   refreshModel();
   refreshStatus();

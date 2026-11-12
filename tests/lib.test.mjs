@@ -175,7 +175,9 @@ test('오류 분류·문구', () => {
   assert.equal(describe('TIMEOUT', 'claude', 'chrome'), 'Claude 응답이 늦어요 — 1분 동안 크롬 내장 번역을 써요');
   assert.equal(describe('NO_CREDIT', 'claude', 'chrome'), 'Claude API 크레딧이 없어요 — 고칠 때까지 크롬 내장 번역을 써요 · 상세 설정에서 확인해 주세요');
   assert.match(describe('DAILY', 'lite', 'claude'), /^Gemini Flash Lite 오늘 무료 한도를 다 썼어요 — 태평양 시간 자정.*Claude 를 써요$/);
-  assert.match(describe('TIMEOUT', 'live', null), /자막을 멈췄어요/);
+  assert.equal(describe('RATE_LIMIT', 'claude', null), 'Claude 요청이 몰렸어요 — 자막을 멈췄어요 · 1분 뒤 다시 해 봐요');
+  assert.match(describe('BAD_KEY', 'claude', null), /고칠 때까지 자막을 멈춰요 · 상세 설정/);
+  assert.match(describe('CAP', 'claude', null), /자정까지 자막을 멈춰요$/);
   assert.deepEqual(['크롬 내장 번역', '번역 모델', 'Claude'].map(eul), ['크롬 내장 번역을', '번역 모델을', 'Claude 를']);
 });
 
