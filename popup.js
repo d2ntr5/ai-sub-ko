@@ -52,6 +52,8 @@ $('addSite').addEventListener('click', async () => {
   const o = originPattern(tab.url);
   if (!o) return;
   const patterns = [o.pattern.replace(/^http:/, 'https:'), o.pattern.replace(/^https:/, 'http:')];
+  // 권한 창이 뜨면 팝업이 닫혀 아래가 실행되지 않는다 → 허락되면 background 가 이어서 더하도록 먼저 알려 둔다
+  await chrome.runtime.sendMessage({ type: 'f1ko-site-pending', host: o.host, tabId: tab.id }).catch(() => {});
   const granted = await chrome.permissions.request({ origins: patterns }).catch(() => false);
   if (!granted) { $('addHint').textContent = '권한을 허락해야 이 사이트에서 쓸 수 있어요.'; return; }
   await chrome.runtime.sendMessage({ type: 'f1ko-site-add', host: o.host, tabId: tab.id });

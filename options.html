@@ -9,6 +9,7 @@
     :root { --bg: #111116; --card: #1b1b22; --fg: #ececf1; --muted: #9a9aa6; --line: #2c2c36; --ok: #4fc36d; --err: #ff6b6b; --warn: #f0a640; --chip: #26262f; --lite: #4d8dff; --chrome: #1a73e8; color-scheme: dark; }
   }
   * { box-sizing: border-box; }
+  [hidden] { display: none !important; } /* .row 같은 display 규칙이 hidden 을 덮지 않게 */
   body { margin: 0; background: var(--bg); color: var(--fg); font: 14px/1.55 -apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo", sans-serif; }
   main { max-width: 820px; margin: 36px auto; padding: 0 16px; display: flex; flex-direction: column; gap: 14px; }
   .top { display: flex; justify-content: space-between; align-items: flex-start; gap: 16px; }

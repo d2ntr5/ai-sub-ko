@@ -20,7 +20,7 @@ function area(name) {
 const registered = [];
 const injected = [];
 // 음성 번역(1.0)용 가짜: offscreen 문서 · 탭 소리 · 탭 메시지 · 단축키
-const fake = { offscreen: false, offReplies: {}, toOff: [], toTab: [], badge: {}, captureError: null, commands: [], contentPresent: true };
+const fake = { offscreen: false, offReplies: {}, toOff: [], toTab: [], badge: {}, captureError: null, commands: [], contentPresent: true, permAdded: [] };
 globalThis.chrome = {
   storage: { sync: area('sync'), local: area('local'), session: area('session') },
   runtime: {
@@ -53,7 +53,7 @@ globalThis.chrome = {
     async insertCSS(o) { injected.push(['css', o]); },
     async executeScript(o) { injected.push(['js', o]); }
   },
-  permissions: { async remove() { return true; } }
+  permissions: { async remove() { return true; }, onAdded: { addListener: f => fake.permAdded.push(f) } }
 };
 
 let calls = [];
@@ -227,6 +227,20 @@ test('사이트 더하기·빼기: 콘텐츠 스크립트 등록, 지금 탭에 
   await send({ type: 'f1ko-site-remove', host: 'learn.example.com' });
   assert.equal(registered.length, 0);
   assert.deepEqual(store.sync.customSites, []);
+});
+
+test('팝업 「이 사이트에서 켜기」: 권한 창에 팝업이 닫혀도 허락되면 background 가 마저 더함', async () => {
+  injected.length = 0;
+  await send({ type: 'f1ko-site-pending', host: 'class.example.com', tabId: 9 });
+  // 다른 사이트 권한이 더해지면 무시
+  for (const f of fake.permAdded) await f({ origins: ['https://other.example.com/*'] });
+  assert.equal(registered.length, 0);
+  for (const f of fake.permAdded) await f({ origins: ['https://class.example.com/*', 'http://class.example.com/*'] });
+  assert.equal(registered[0]?.id, 'site-class.example.com');
+  assert.ok(store.sync.customSites.includes('class.example.com'));
+  assert.deepEqual(injected.map(([k, o]) => [k, o.target.tabId]), [['css', 9], ['js', 9]]);
+  assert.equal(store.session.sitePending, undefined, '한 번 쓰면 지움');
+  await send({ type: 'f1ko-site-remove', host: 'class.example.com' });
 });
 
 // ===== 음성 번역 (1.0) =====

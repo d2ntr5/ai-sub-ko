@@ -3,6 +3,7 @@
   :root { --fg: #ececf1; --muted: #9a9aa6; --line: #2c2c36; --card: #1b1b22; --ok: #4fc36d; --warn: #f0a640; --err: #ff6b6b; --chip: #26262f; --lite: #4d8dff; --listen: #4fc3a6; }
 }
 * { box-sizing: border-box; }
+[hidden] { display: none !important; } /* display 규칙이 hidden 을 덮지 않게 */
 body { width: 340px; margin: 0; background: var(--card); color: var(--fg); font: 13px/1.45 -apple-system, "Apple SD Gothic Neo", sans-serif; }
 header { display: flex; align-items: center; gap: 10px; padding: 12px 14px; border-bottom: 1px solid var(--line); }
 .logo { width: 28px; height: 28px; flex: none; }
