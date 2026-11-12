@@ -205,9 +205,12 @@ const PENDING_MS = 5 * 60_000;
 chrome.permissions.onAdded.addListener(async ({ origins = [] }) => {
   const { sitePending: p = null } = await chrome.storage.session.get('sitePending');
   if (!p || Date.now() - p.at > PENDING_MS) return;
-  if (!origins.some(o => o === `https://${p.host}/*` || o === `http://${p.host}/*`)) return;
-  await chrome.storage.session.remove('sitePending');
-  await addSite(p.host, p.tabId).catch(() => {});
+  const hit = p.hosts.filter(h => origins.some(o => o === `https://${h}/*` || o === `http://${h}/*`));
+  if (!hit.length) return;
+  const rest = p.hosts.filter(h => !hit.includes(h));
+  if (rest.length) await chrome.storage.session.set({ sitePending: { ...p, hosts: rest } });
+  else await chrome.storage.session.remove('sitePending');
+  for (const h of hit) await addSite(h, p.tabId).catch(() => {});
 });
 
 async function removeSite(host) {
@@ -418,7 +421,9 @@ const handlers = {
   },
 
   async 'f1ko-site-pending'(msg) {
-    await chrome.storage.session.set({ sitePending: { host: String(msg.host || ''), tabId: msg.tabId ?? null, at: Date.now() } });
+    // hosts: 이 사이트 + (영상이 다른 주소의 iframe 안이면) 그 플레이어 주소들
+    const hosts = (Array.isArray(msg.hosts) ? msg.hosts : [msg.host]).map(h => String(h || '').toLowerCase()).filter(h => /^[a-z0-9.-]+$/.test(h));
+    await chrome.storage.session.set({ sitePending: { hosts, tabId: msg.tabId ?? null, at: Date.now() } });
     return { ok: true };
   },
 

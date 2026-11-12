@@ -242,6 +242,13 @@ test('팝업 「이 사이트에서 켜기」: 권한 창에 팝업이 닫혀도
   assert.deepEqual(injected.map(([k, o]) => [k, o.target.tabId]), [['css', 9], ['js', 9]]);
   assert.equal(store.session.sitePending, undefined, '한 번 쓰면 지움');
   await send({ type: 'f1ko-site-remove', host: 'class.example.com' });
+  // 영상이 다른 주소의 iframe 안: 플레이어 주소 여러 개를 한 번에
+  await send({ type: 'f1ko-site-pending', hosts: ['player.example.net', 'cdn.example.org'], tabId: 9 });
+  for (const f of fake.permAdded) await f({ origins: ['https://player.example.net/*', 'http://player.example.net/*', 'https://cdn.example.org/*', 'http://cdn.example.org/*'] });
+  assert.deepEqual(registered.map(r => r.id).sort(), ['site-cdn.example.org', 'site-player.example.net']);
+  assert.equal(store.session.sitePending, undefined);
+  await send({ type: 'f1ko-site-remove', host: 'player.example.net' });
+  await send({ type: 'f1ko-site-remove', host: 'cdn.example.org' });
 });
 
 test('확장 업데이트 뒤: 권한이 남은 직접 더한 사이트만 콘텐츠 스크립트를 다시 등록', async () => {
