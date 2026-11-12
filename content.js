@@ -370,14 +370,14 @@
   /** 모델을 받은 상태일 때만 쓴다. 내려받기는 팝업·상세 설정의 버튼으로 (크롬이 사용자가 누를 때만 허락) */
   const srcLang = () => S.listen?.lang || 'en';
 
-  async function ensureChromeTranslator(src = 'en') {
+  async function ensureChromeTranslator(src = 'en', quiet = false) {
     if (S.chromeTr[src]) return true;
     if (!('Translator' in self)) { showMsg('크롬 내장 번역을 쓸 수 없어요 (크롬 138 이상 필요)', 6000); return false; }
     const opts = { sourceLanguage: src, targetLanguage: 'ko' };
     const avail = await Translator.availability(opts);
     if (avail !== 'available') {
       const warned = (S.modelWarned ||= {});
-      if (!warned[src]) {
+      if (!warned[src] && !quiet) {
         warned[src] = true;
         const what = src === 'ja' ? '일본어 → 한국어 크롬 번역 모델' : '크롬 번역 모델';
         showMsg(avail === 'unavailable' ? `이 Mac 에서는 ${what}을 쓸 수 없어요`
@@ -403,13 +403,14 @@
     throw new Error('크롬 번역 불가');
   }
 
-  async function translateChrome(text) {
+  /** quiet: Flash Lite 미리 번역을 기다리는 몇 초 사이의 대신 번역 — 모델이 없어도 안내하지 않음 (곧 미리 번역이 덮음) */
+  async function translateChrome(text, quiet = false) {
     const src = srcLang();
     const t0 = performance.now();
     let raw;
     if (S.listen) raw = await translateChromeViaExtension(text, src);
     else {
-      if (!(await ensureChromeTranslator(src))) throw new Error('크롬 번역 불가');
+      if (!(await ensureChromeTranslator(src, quiet))) throw new Error('크롬 번역 불가');
       raw = await S.chromeTr[src].translate(text);
     }
     const out = G.fixChromeTranslation(raw, S.glossary, S.packs);
@@ -444,11 +445,12 @@
   async function translate(text) {
     if (S.cache.has(text)) return S.cache.get(text);
     let out = null;
+    const waitingLite = !S.listen && lineEngine() === 'lite' && usable('lite');
     for (const e of lineChain()) {
       if (!e) break;
       if (e !== 'chrome' && !usable(e)) continue;
       try {
-        out = e === 'chrome' ? await translateChrome(text) : await translateApi(e, text);
+        out = e === 'chrome' ? await translateChrome(text, waitingLite) : await translateApi(e, text);
         if (S.used !== e) { S.used = e; updateBadge(); }
         break;
       } catch (err) {
@@ -652,7 +654,8 @@
 
   /** 영상이 바뀌면 (YouTube 는 페이지를 새로 읽지 않는다) 미리 번역·상태를 처음부터 */
   function checkVideoChange() {
-    const key = S.site?.id === 'youtube' ? ytVideoId() : location.href;
+    // 강의 플레이어는 주소를 그대로 두고 영상(src)만 바꾸기도 한다 → 영상 주소도 본다 (그 전 강의 번역이 남지 않게)
+    const key = S.site?.id === 'youtube' ? ytVideoId() : `${location.href}|${mainVideo()?.currentSrc || ''}`;
     if (key === S.videoKey) return;
     S.videoKey = key;
     S.vod = null; S.mode = 'live'; S.vodShown = -1; S.trackSeen = null;
@@ -713,6 +716,16 @@
     return '';
   }
 
+  /** 나중에 붙은 자막 트랙(다음 강의 등)도 숨김 설정이면 화면에서 숨긴다 */
+  function hideNewTracks() {
+    if (!(S.enabled && S.siteOn && S.cfg.hideOriginal && !S.koHuman)) return;
+    for (const v of document.querySelectorAll('video')) {
+      for (const tr of v.textTracks || []) {
+        if (tr.mode === 'showing' && /subtitles|captions/.test(tr.kind)) { tr.mode = 'hidden'; S.hiddenTracks.add(tr); }
+      }
+    }
+  }
+
   function isEnTrack(tr) {
     return /^en\b/i.test(tr.language || '') || /english|영어/i.test(tr.label || '');
   }
@@ -742,6 +755,7 @@
     if (S.enabled && S.siteOn && S.cfg.listenWhen === 'always' && !S.listenAsked) suggestListen();
     if (!S.enabled || !S.siteOn || S.koHuman || S.skipAsr || S.picking) return;
     placeBox();
+    hideNewTracks();
     ensureEnTrack();
     checkTrackVod();
     maybeReloadYtCaptions();
@@ -1010,6 +1024,10 @@
     S.lastOut = '';             // 건너뛴 뒤에는 그 전 장면 자막을 윗줄에 두지 않음
     S.seeked = true;
     clearSoon();
+    clearTimeout(S.holdTimer);  // 건너뛰면 기다리지 않고 바로 지움 (그 전 장면 자막이 잠깐 남지 않게)
+    S.curSrc = '';
+    S.vodShown = -1;
+    setLines('', '', '');
   }, true);
 
   // ===== 팝업과 대화 (영상이 있는 프레임만 대답) =====
