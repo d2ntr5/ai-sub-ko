@@ -6,6 +6,12 @@
   font-family: "Apple SD Gothic Neo", "Pretendard", "Malgun Gothic", -apple-system, sans-serif;
 }
 
+/* <video> 전체 화면 때 popover(맨 위 층)로 띄움: 기본 popover 모양(가운데 · 테두리 · 배경)을 지운다 */
+#f1ko-root[popover] {
+  position: fixed; inset: 0; width: auto; height: auto; margin: 0; padding: 0;
+  border: 0; background: transparent; color: inherit; overflow: visible;
+}
+
 #f1ko-btn {
   pointer-events: auto;
   position: absolute;
