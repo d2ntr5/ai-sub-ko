@@ -128,6 +128,8 @@ test('지시문은 캐시가 걸릴 만큼 길고 매번 같다 (F1)', () => {
 test('묶음 규칙: 기술·영화', () => {
   assert.match(packRules(['common', 'cloud']), /제품·서비스 이름/);
   assert.equal(packRules(['common']), '');
+  assert.doesNotMatch(packRules(['common', 'cloud', 'film']), /강의하는 말투/, '영화면 강의 말투 규칙은 빼기');
+  assert.match(packRules(['common', 'cloud', 'film']), /반말·존댓말/);
   const film = packRules(['film'], { filmTone: true, filmNames: false, filmShort: true });
   assert.match(film, /반말·존댓말/);
   assert.doesNotMatch(film, /처음 정한 한글 표기/);
