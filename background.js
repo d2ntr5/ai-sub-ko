@@ -1,9 +1,9 @@
 // ai-sub-ko — background service worker (module)
 // Claude·Gemini API 는 여기서만 부른다: API 키가 페이지에 노출되지 않게.
 import { normalize, MODELS, GEMINI_DEFAULTS, GEMINI_LIMITS } from './lib/settings.js';
-import { DEFAULT_GLOSSARY, sanitizeGlossary, entriesFor, usePacks } from './lib/glossary.js';
+import { DEFAULT_GLOSSARY, sanitizeGlossary, entriesFor, usePacks, overflowTerms } from './lib/glossary.js';
 import { hintPhrases, BOOST, captureReason } from './lib/listen.js';
-import { API_URL, MODELS_URL, buildSystemPrompt, buildRequestBody, buildHeaders, extractText, pickClaudeModels } from './lib/prompt.js';
+import { API_URL, MODELS_URL, PROMPT_TERMS_MAX, buildSystemPrompt, buildRequestBody, buildHeaders, extractText, pickClaudeModels } from './lib/prompt.js';
 import { classify } from './lib/errors.js';
 import { dayKey, addUsage, emptyDay, overCap, pruneDays, ptDayKey, emptyGeminiDay } from './lib/cost.js';
 import { RateWindow, LruCache, cacheKey, CLAUDE_PER_MIN, SHARED_CACHE_MAX } from './lib/guard.js';
@@ -133,7 +133,8 @@ async function fetchJSON(url, init, timeoutMs, classifier) {
 // ===== Claude =====
 async function callClaude(text, context, cfg, packs, timeoutMs, srcLang = 'en') {
   if (!cfg.apiKey) throw err('NO_KEY', 'API 키 없음');
-  const body = buildRequestBody({ model: cfg.model, system: buildSystemPrompt(cfg.glossary, packs, { ...cfg, srcLang }), text, context });
+  const extraTerms = overflowTerms(cfg.glossary, packs, text, PROMPT_TERMS_MAX);
+  const body = buildRequestBody({ model: cfg.model, system: buildSystemPrompt(cfg.glossary, packs, { ...cfg, srcLang }), text, context, extraTerms });
   const { data, ms } = await fetchJSON(API_URL, { method: 'POST', headers: buildHeaders(cfg.apiKey), body: JSON.stringify(body) }, timeoutMs, classify);
   const out = extractText(data);
   if (!out) throw err('API_ERROR', '빈 응답');

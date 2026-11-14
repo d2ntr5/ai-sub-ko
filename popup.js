@@ -30,7 +30,28 @@ function render() {
 async function save(patch) {
   cfg = normalize({ ...cfg, ...patch });
   render();
-  await chrome.storage.sync.set(patch);
+  await chrome.storage.sync.set(patch).catch(e => retryLater(patch, e));
+}
+
+// 슬라이더: 끄는 동안 매번 저장하면 storage.sync 의 분당 쓰기 한도(120)를 넘어 마지막 값이 저장되지 않고
+// 그 1분 동안 다른 설정도 안 바뀐다 → 끄는 동안은 0.5초에 한 번만, 놓으면 바로 저장
+let slidePatch = null, slideTimer = 0;
+function saveSlide(patch, now = false) {
+  cfg = normalize({ ...cfg, ...patch });
+  render();
+  slidePatch = { ...slidePatch, ...patch };
+  if (now) { clearTimeout(slideTimer); slideTimer = 0; flushSlide(); return; }
+  if (!slideTimer) slideTimer = setTimeout(() => { slideTimer = 0; flushSlide(); }, 500);
+}
+function flushSlide() {
+  if (!slidePatch) return;
+  const p = slidePatch; slidePatch = null;
+  chrome.storage.sync.set(p).catch(e => retryLater(p, e));
+}
+/** 한도에 걸렸으면 잠시 뒤 다시 (그사이 새로 바꾼 값이 있으면 그 값이 이김) */
+function retryLater(patch, e) {
+  if (!/QUOTA/i.test(e?.message || '')) return;
+  setTimeout(() => chrome.storage.sync.set(Object.fromEntries(Object.keys(patch).map(k => [k, cfg[k]]))).catch(() => {}), 20_000);
 }
 
 // ===== 적용 사이트 =====
@@ -163,8 +184,11 @@ $('modelDl').addEventListener('click', async () => {
 });
 
 for (const id of TOGGLES) $(id).addEventListener('change', e => save({ [id]: e.target.checked }));
-$('bottomPct').addEventListener('input', e => save({ bottomPct: Number(e.target.value) }));
-$('fontScale').addEventListener('input', e => save({ fontScale: Number(e.target.value) }));
+for (const id of ['bottomPct', 'fontScale']) {
+  $(id).addEventListener('input', e => saveSlide({ [id]: Number(e.target.value) }));
+  $(id).addEventListener('change', e => saveSlide({ [id]: Number(e.target.value) }, true));
+}
+addEventListener('pagehide', flushSlide); // 팝업을 닫아도 마지막 값은 저장
 $('enabled').addEventListener('change', e => chrome.storage.local.set({ enabled: e.target.checked }));
 $('openOptions').addEventListener('click', e => { e.preventDefault(); chrome.runtime.openOptionsPage(); });
 
