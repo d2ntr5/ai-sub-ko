@@ -277,6 +277,10 @@ test('사이트·묶음 고르기', () => {
   assert.equal(originPattern('chrome://extensions'), null);
   assert.equal(hostFromInput(' Learn.Example.com/path '), 'learn.example.com');
   assert.equal(hostFromInput('localhost'), null);
+  assert.equal(hostFromInput('*.example.com'), 'example.com', '별표는 떼고 도메인 전체로');
+  assert.equal(hostFromInput('https://*.ex.com/a'), 'ex.com');
+  assert.equal(hostFromInput('.com'), null);
+  assert.equal(hostFromInput('a..b'), null);
 });
 
 test('YouTube 자막 전체(json3)·재생 시각의 줄', () => {
