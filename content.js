@@ -527,12 +527,25 @@
   }
 
   // ===== 일반 영상: 자막 전체 미리 번역 (Gemini Flash Lite) =====
-  async function startVod(id, cues) {
+  /** 트랙에 줄이 더 붙음: 앞 줄이 같으면 번역해 둔 것은 두고 늘어난 만큼만 이어서 미리 번역 */
+  function extendVod(id, cues) {
+    const v = S.vod;
+    const same = v.cues.every((c, i) => cues[i] && cues[i].start === c.start && cues[i].text === c.text);
+    if (!same) { startVod(id, cues, v.track); return; }
+    v.cues = cues;
+    v.tr = [...v.tr, ...new Array(cues.length - v.tr.length).fill(null)];
+    v.key = VOD.vodKey(id, cues);
+    v.done = false;
+    log('자막 줄이 늘어남', cues.length);
+    maybeRunVod();
+  }
+
+  async function startVod(id, cues, track = null) {
     if (!cues.length) return;
     const key = VOD.vodKey(id, cues);
     if (S.vod?.key === key) return;
     // loading: 저장해 둔 번역을 읽는 동안 — 그 사이 시계(tick)가 미리 번역을 시작해 같은 영상을 다시 요청하지 않게
-    const v = { key, cues, tr: new Array(cues.length).fill(null), names: [], done: false, running: false, loading: true, failed: new Set(), tries: {} };
+    const v = { key, cues, track, tr: new Array(cues.length).fill(null), names: [], done: false, running: false, loading: true, failed: new Set(), tries: {} };
     S.vod = v;
     S.mode = 'vod';
     S.vodShown = -1;
@@ -576,9 +589,12 @@
       const meanwhile = !fill || (fill === 'chrome' && !(await chromeReady())) ? '번역이 오는 대로 보여요' : `그동안은 ${esc(ENGINE_NAMES[fill])}`;
       showMsg(`자막 ${n}줄 미리 번역 중 · ${doneLines}줄 끝 · ${meanwhile}`, 0);
       try {
-        const res = await chrome.runtime.sendMessage({ type: 'f1ko-batch', lines: v.cues.slice(a, b).map(c => c.text), names: S.cfg.filmNames ? v.names : [], packs: S.packs });
+        // 이미 번역한 앞줄은 다시 보내지 않는다 (줄이 늘어난 트랙 · 일부만 빠진 묶음)
+        let s = a;
+        while (s < b && v.tr[s]) s++;
+        const res = await chrome.runtime.sendMessage({ type: 'f1ko-batch', lines: v.cues.slice(s, b).map(c => c.text), names: S.cfg.filmNames ? v.names : [], packs: S.packs });
         if (!res?.ok) throw Object.assign(new Error(res?.error || '응답 없음'), { code: res?.code || 'API_ERROR' });
-        res.lines.forEach((tx, i) => { if (tx) v.tr[a + i] = tx; });
+        res.lines.forEach((tx, i) => { if (tx) v.tr[s + i] = tx; });
         for (const nm of res.names || []) if (!v.names.some(x => x.en.toLowerCase() === nm.en.toLowerCase())) v.names.push(nm);
         if (v.names.length > 80) v.names = v.names.slice(-80);
         if (!v.tr.slice(a, b).every(Boolean)) {
@@ -615,7 +631,9 @@
     const { cur, prev } = VOD.activeAt(S.vod.cues, v.currentTime);
     if (cur < 0) {
       if (S.vodShown >= 0) { S.vodShown = -1; clearSoon(); } // 한 번만 (매번 부르면 지우기 시계가 계속 다시 시작)
-      return true;
+      // 받은 줄 목록보다 뒤(줄이 아직 덜 붙음): 한 줄씩 번역으로 넘긴다 (전에는 여기서 자막이 끝까지 비었음)
+      const last = S.vod.cues[S.vod.cues.length - 1];
+      return !last || v.currentTime <= last.end;
     }
     S.lastSeenAt = Date.now();
     S.source = `자막 전체 ${S.vod.cues.length}줄 (미리 번역)`;
@@ -633,7 +651,7 @@
 
   /** YouTube 가 아닌 사이트: 브라우저 자막 트랙에 줄이 다 들어와 있으면 미리 번역 */
   function checkTrackVod() {
-    if (S.vod || S.site?.id === 'youtube') return;
+    if (S.site?.id === 'youtube' || (S.vod && !S.vod.track)) return;
     const v = mainVideo();
     if (!v || !Number.isFinite(v.duration) || v.duration <= 0) return;
     for (const tr of v.textTracks || []) {
@@ -641,9 +659,17 @@
       if (!(/^en\b/i.test(tr.language || '') || /english|영어/i.test(tr.label || ''))) continue;
       const n = tr.cues?.length || 0;
       if (!n) continue;
+      // 이미 미리 번역 중이면, 같은 트랙에 줄이 더 붙었을 때만 (HLS 처럼 재생하면서 자막 조각을 받는 플레이어)
+      if (S.vod && (S.vod.track !== tr || n <= S.vod.cues.length)) return;
+      // 한 줄 붙을 때마다 요청하지 않게: 10줄 넘게 쌓였거나, 재생이 받은 줄의 끝 5초 안으로 왔을 때만 이어서
+      if (S.vod && n - S.vod.cues.length < 10 && v.currentTime < (S.vod.cues.at(-1)?.end || 0) - 5) return;
       const seen = S.trackSeen;
       if (seen && seen.tr === tr && seen.n === n) {
-        if (Date.now() - seen.at > TRACK_STABLE_MS) startVod(`${location.origin}${location.pathname}#${tr.label || tr.language}`, VOD.cuesFromTrack(tr.cues));
+        if (Date.now() - seen.at > TRACK_STABLE_MS) {
+          const id = `${location.origin}${location.pathname}#${tr.label || tr.language}`;
+          const cues = VOD.cuesFromTrack(tr.cues);
+          if (S.vod) extendVod(id, cues); else startVod(id, cues, tr);
+        }
       } else {
         S.trackSeen = { tr, n, at: Date.now() };
       }
