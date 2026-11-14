@@ -331,6 +331,8 @@ test('Gemini 미리 번역 요청·응답', () => {
   const data = { candidates: [{ content: { parts: [{ text: '{"lines":["가"," ",null],"names":[{"en":"Paul","ko":"폴"},{"en":""}]}' }] } }], usageMetadata: { promptTokenCount: 100, candidatesTokenCount: 20 } };
   assert.deepEqual(parseBatch(data, 3), { lines: ['가', null, null], names: [{ en: 'Paul', ko: '폴' }], complete: true });
   assert.deepEqual(parseBatch({}, 2).lines, [null, null]);
+  const echo = { candidates: [{ content: { parts: [{ text: JSON.stringify({ lines: ['1. 첫 줄', '2) 둘째', '3. 셋째 2. 원문에도 번호'] }) }] } }] };
+  assert.deepEqual(parseBatch(echo, 3, ['First', 'Second', '3. Step three']).lines, ['첫 줄', '둘째', '3. 셋째 2. 원문에도 번호'], '따라 붙인 번호만 떼기');
   assert.deepEqual(geminiUsage(data), { input: 100, output: 20 });
 });
 

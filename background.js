@@ -190,7 +190,7 @@ async function callLite(lines, names, cfg, packs, timeoutMs, { count = true } = 
     const { data, ms } = res;
     const u = geminiUsage(data);
     await recordGemini({ lite: 1, liteIn: u.input, liteOut: u.output });
-    const r = parseBatch(data, lines.length);
+    const r = parseBatch(data, lines.length, lines);
     if (!r.lines.some(Boolean)) throw err('API_ERROR', '빈 응답');
     return { ...r, ms };
   } catch (e) {
