@@ -340,7 +340,7 @@
   /** 지금 쓸 엔진: 팝업에서 고른 것(키가 있을 때) > 자동 (일반 영상 Flash Lite → Claude → 크롬, 라이브 Claude → 크롬) */
   // ===== 토큰 새는 것 막기 (1.0.17): 안 보는 탭 · 오래 조작 없음 =====
   function aiPause() {
-    return GUARD.pauseReason({ hidden: document.visibilityState === 'hidden', pip: !!document.pictureInPictureElement, lastInputAt: S.lastInputAt });
+    return GUARD.pauseReason({ hidden: document.visibilityState === 'hidden', lastInputAt: S.lastInputAt });
   }
   /** 오래 조작이 없어 AI 를 쉬기 시작하면 한 번 알림 (사이트 자막 · 음성 번역 둘 다) */
   function noteIdle(why = aiPause()) {
