@@ -388,8 +388,14 @@ async function renderUsage() {
 }
 
 $('resetUsage').addEventListener('click', async () => {
-  if (!confirm('사용량 기록을 지울까요? (청구·한도와는 상관없어요)')) return;
-  await chrome.storage.local.remove(['usage', 'gemini']);
+  // 오늘 기록은 남긴다 — 지우면 하루 비용 상한 · Gemini 하루 한도를 0 부터 다시 세서 상한이 풀린다
+  if (!confirm('지난 사용량 기록(이번 달 합계 등)을 지울까요?\n오늘 기록은 비용 상한 · 무료 한도 계산에 쓰여서 남겨요. 실제 청구와는 상관없어요.')) return;
+  const { usage = {}, gemini = {} } = await chrome.storage.local.get(['usage', 'gemini']);
+  const today = usage.days?.[dayKey()], gToday = gemini[ptDayKey()];
+  await chrome.storage.local.set({
+    usage: { ...usage, days: today ? { [dayKey()]: today } : {} },
+    gemini: gToday ? { [ptDayKey()]: gToday } : {}
+  });
   renderUsage();
 });
 
