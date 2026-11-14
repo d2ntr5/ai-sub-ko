@@ -32,6 +32,7 @@ section { padding: 10px 14px; border-bottom: 1px solid var(--line); display: fle
 .grid3 button.on[data-v=lite] { background: var(--gemini); border-color: transparent; }
 .grid3 button:disabled { cursor: not-allowed; border-style: dashed; background: var(--chip); color: var(--muted); }
 .grid3 button.model small { color: var(--warn); }
+.grid3 button.on.model small { color: #fff; font-weight: 700; } /* 고른 단추(파란 배경) 위 주황 글자는 거의 안 보임 */
 .hint a { color: var(--accent); }
 .switch-input { appearance: none; width: 36px; height: 22px; border-radius: 11px; background: color-mix(in srgb, var(--muted) 45%, transparent); position: relative; cursor: pointer; flex: none; margin: 0; transition: background .15s; }
 .switch-input::after { content: ""; position: absolute; top: 3px; left: 3px; width: 16px; height: 16px; border-radius: 8px; background: #fff; transition: left .15s; }
