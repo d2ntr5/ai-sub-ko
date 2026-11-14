@@ -34,12 +34,16 @@ const claudeRate = new RateWindow(CLAUDE_PER_MIN);
 // 같이 쓰는 번역 기억: 같은 줄을 다른 탭 · 새로고침 · 되감기 뒤에 다시 사지 않게. 크롬을 끄면 지워짐 (storage.session)
 let shared = null, sharedSaveTimer = 0;
 const inflight = new Map(); // 지금 요청 중인 줄 → 그 요청
+let sharedLoading = null;
 async function sharedCache() {
-  if (!shared) {
-    const { trCache = [] } = await chrome.storage.session.get('trCache').catch(() => ({}));
-    shared = new LruCache(SHARED_CACHE_MAX, Array.isArray(trCache) ? trCache : []);
-  }
-  return shared;
+  if (shared) return shared;
+  // 서비스 워커가 깨어날 때 요청 여럿이 동시에 와도 한 번만 읽는다 (따로 읽으면 먼저 기억한 줄이 덮여 사라짐)
+  sharedLoading ||= chrome.storage.session.get('trCache').catch(() => ({})).then(({ trCache = [] }) => {
+    shared ||= new LruCache(SHARED_CACHE_MAX, Array.isArray(trCache) ? trCache : []);
+    sharedLoading = null;
+    return shared;
+  });
+  return sharedLoading;
 }
 function saveSharedSoon() {
   clearTimeout(sharedSaveTimer);

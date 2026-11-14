@@ -342,6 +342,12 @@
   function aiPause() {
     return GUARD.pauseReason({ hidden: document.visibilityState === 'hidden', pip: !!document.pictureInPictureElement, lastInputAt: S.lastInputAt });
   }
+  /** 오래 조작이 없어 AI 를 쉬기 시작하면 한 번 알림 (사이트 자막 · 음성 번역 둘 다) */
+  function noteIdle(why = aiPause()) {
+    if (why !== 'idle' || S.resting === 'idle') return;
+    S.resting = 'idle';
+    showMsg('3시간 동안 조작이 없어 AI 번역(Claude · Gemini)을 쉬고 있어요 · 마우스를 움직이거나 키를 누르면 다시 해요', 0, true);
+  }
   function markInput() {
     S.lastInputAt = Date.now();
     if (S.resting === 'idle') {
@@ -817,10 +823,7 @@
     if (!S.enabled || !S.siteOn || S.koHuman || S.skipAsr || S.picking) return;
     const why = aiPause();
     if (why === 'hidden') return; // 안 보이는 탭: 자막을 읽지도 번역하지도 않음 (볼 사람이 없음)
-    if (why === 'idle' && S.resting !== 'idle') {
-      S.resting = 'idle';
-      showMsg('3시간 동안 조작이 없어 AI 번역(Claude · Gemini)을 쉬고 있어요 · 마우스를 움직이거나 키를 누르면 다시 해요', 0, true);
-    }
+    noteIdle(why);
     placeBox();
     hideNewTracks();
     ensureEnTrack();
@@ -964,6 +967,7 @@
 
   function sendPiece(piece) {
     if (!piece) return;
+    noteIdle(); // 음성 번역도 3시간 조작이 없으면 AI 를 쉬므로 알림 (전에는 조용히 멈춤)
     S.listen.cleared = false;
     S.lastSeenAt = Date.now();
     doTranslate(piece, true);
