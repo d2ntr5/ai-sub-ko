@@ -432,3 +432,18 @@ test('토큰 아끼기: 쉬는 이유 · 분당 창 · 기억', async () => {
   assert.notEqual(cacheKey({ model: 'm', packs: ['common'], text: 'hi' }), cacheKey({ model: 'm', packs: ['common', 'f1'], text: 'hi' }));
   assert.equal(cacheKey({ model: 'm', packs: ['common'], text: ' hi ' }), cacheKey({ model: 'm', packs: ['common'], text: 'hi' }));
 });
+
+test('토큰 아끼기: 큰 용어집은 지시문에 400개까지, 넘는 용어는 그 줄에 나올 때만 사용자 메시지에', async () => {
+  const G = await import('../lib/glossary.js');
+  const P = await import('../lib/prompt.js');
+  const g = G.cloneGlossary(G.DEFAULT_GLOSSARY);
+  g.packs.common = Array.from({ length: 3000 }, (_, i) => ({ en: `term${i} word`, ko: `용어${i}`, kind: 'ko', group: '' }));
+  const s = G.sanitizeGlossary(g);
+  const sys = P.buildSystemPrompt(s, ['common', 'cloud']);
+  assert.ok(sys.length < 20000, `지시문 ${sys.length}자`);
+  assert.equal(sys, P.buildSystemPrompt(s, ['common', 'cloud']), '캐시: 매번 같은 글');
+  assert.equal(G.overflowTerms(s, ['common', 'cloud'], 'we use term2500 word here', P.PROMPT_TERMS_MAX), '- term2500 word → 용어2500');
+  assert.equal(G.overflowTerms(s, ['common', 'cloud'], 'nothing here', P.PROMPT_TERMS_MAX), '');
+  assert.equal(G.overflowTerms(G.DEFAULT_GLOSSARY, ['common', 'f1'], 'Max Verstappen', P.PROMPT_TERMS_MAX), '', '기본 용어집은 넘지 않음');
+  assert.match(P.buildUserContent('x', [], '- a → 가'), /추가 용어[\s\S]*- a → 가[\s\S]*번역할 자막:\nx$/);
+});
