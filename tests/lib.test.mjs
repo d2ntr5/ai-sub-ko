@@ -419,7 +419,7 @@ test('토큰 아끼기: 쉬는 이유 · 분당 창 · 기억', async () => {
   const { pauseReason, RateWindow, LruCache, cacheKey, UNATTENDED_MS } = await import('../lib/guard.js');
   const now = 10 * UNATTENDED_MS;
   assert.equal(pauseReason({ hidden: true, lastInputAt: now, now }), 'hidden');
-  assert.equal(pauseReason({ hidden: true, pip: true, lastInputAt: now, now }), '', '화면 속 화면은 보고 있음');
+  assert.equal(pauseReason({ hidden: true, pip: true, lastInputAt: now, now }), 'hidden', '화면 속 화면 창에는 이 확장 자막이 안 보이므로 쉼');
   assert.equal(pauseReason({ lastInputAt: now - UNATTENDED_MS - 1, now }), 'idle');
   assert.equal(pauseReason({ lastInputAt: now - 60_000, now }), '');
   const w = new RateWindow(3, 1000);
