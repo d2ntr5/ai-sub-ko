@@ -388,7 +388,7 @@ const handlers = {
 
   async 'f1ko-listen-state'(msg, sender) {
     const cur = await listenState();
-    const tabId = msg.tabId ?? sender?.tab?.id;
+    const tabId = isExtensionPage(sender) ? (msg.tabId ?? sender?.tab?.id) : sender?.tab?.id; // 페이지는 제 탭 상태만
     return { ok: true, listening: !!cur && cur.tabId === tabId, lang: cur?.lang || null, other: !!cur && cur.tabId !== tabId };
   },
 
@@ -490,7 +490,15 @@ const handlers = {
   }
 };
 
+// 콘텐츠 스크립트(사이트 페이지 안)가 보낼 수 있는 것. 사이트 추가 · 연결 테스트(키를 받음) · 음성 번역 시작 · offscreen 전달은
+// 확장 페이지(팝업 · 상세 설정 · offscreen)에서만 — 페이지가 뚫려도 이 명령으로 설정을 바꾸거나 다른 탭에 글을 넣지 못하게 (1.0.27)
+const FROM_CONTENT = new Set(['f1ko-translate', 'f1ko-batch', 'f1ko-keys', 'f1ko-count', 'f1ko-chrome-translate',
+  'f1ko-listen-support', 'f1ko-listen-state', 'f1ko-listen-stop', 'f1ko-open-options']);
+const isExtensionPage = sender => String(sender?.url || '').startsWith(chrome.runtime.getURL(''));
+
 chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
+  if (sender?.id !== chrome.runtime.id) return false;
+  if (!isExtensionPage(sender) && !FROM_CONTENT.has(msg?.type)) return false;
   if (msg?.type === 'f1ko-open-options') { chrome.runtime.openOptionsPage(); return false; }
   if (msg?.type === 'f1ko-off') {
     // offscreen 의 받아 적은 글 · 상태 → 그 탭으로
