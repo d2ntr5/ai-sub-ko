@@ -290,10 +290,10 @@ test('YouTube 자막 전체(json3)·재생 시각의 줄', () => {
     { tStartMs: 2000, dDurationMs: 3000, segs: [{ utf8: 'and that\'s why' }] },
     { tStartMs: 4000 }
   ] });
-  const cues = parseJson3(body);
+  const cues = parseJson3(body, clean);
   assert.deepEqual(cues, [{ start: 0, end: 2, text: 'Hello world' }, { start: 2, end: 5, text: "and that's why" }]);
-  assert.deepEqual(parseJson3('not json'), []);
-  assert.deepEqual(parseJson3(JSON.stringify({ events: [{ tStartMs: 0, dDurationMs: 1000, segs: [{ utf8: '>> Hi' }, { utf8: ' >> there' }] }] })),
+  assert.deepEqual(parseJson3('not json', clean), []);
+  assert.deepEqual(parseJson3(JSON.stringify({ events: [{ tStartMs: 0, dDurationMs: 1000, segs: [{ utf8: '>> Hi' }, { utf8: ' >> there' }] }] }), clean),
     [{ start: 0, end: 1, text: 'Hi there' }], '자동 자막의 >> 도 뺀다');
   assert.deepEqual(activeAt(cues, 2.5), { cur: 1, prev: 0 });
   assert.deepEqual(activeAt(cues, 1), { cur: 0, prev: -1 });
@@ -301,7 +301,7 @@ test('YouTube 자막 전체(json3)·재생 시각의 줄', () => {
   assert.deepEqual(timedtextInfo('https://www.youtube.com/api/timedtext?v=abc123&lang=en&kind=asr&fmt=json3'), { videoId: 'abc123', lang: 'en', asr: true, english: true });
   assert.equal(timedtextInfo('https://www.youtube.com/api/timedtext?v=abc&lang=en&tlang=ko'), null, '자동 번역 주소는 원문이 아님');
   assert.equal(timedtextInfo('https://www.youtube.com/api/timedtext?v=abc&lang=ja').english, false);
-  assert.deepEqual(cuesFromTrack([{ startTime: 1, endTime: 2, text: '<i>Hi</i>' }, { startTime: 2, endTime: 3, text: ' ' }]), [{ start: 1, end: 2, text: 'Hi' }]);
+  assert.deepEqual(cuesFromTrack([{ startTime: 1, endTime: 2, text: '<i>Hi</i>' }, { startTime: 2, endTime: 3, text: ' ' }], clean), [{ start: 1, end: 2, text: 'Hi' }]);
 });
 
 test('미리 번역 묶음 나누기·순서·저장', () => {
@@ -452,4 +452,14 @@ test('토큰 아끼기: 큰 용어집은 지시문에 400개까지, 넘는 용�
   assert.equal(G.overflowTerms(s, ['common', 'cloud'], 'nothing here', P.PROMPT_TERMS_MAX), '');
   assert.equal(G.overflowTerms(G.DEFAULT_GLOSSARY, ['common', 'f1'], 'Max Verstappen', P.PROMPT_TERMS_MAX), '', '기본 용어집은 넘지 않음');
   assert.match(P.buildUserContent('x', [], '- a → 가'), /추가 용어[\s\S]*- a → 가[\s\S]*번역할 자막:\nx$/);
+});
+
+test('콘텐츠 스크립트용 lib 는 하위 import 가 없다 (use_dynamic_url 에서 막힘) · errors 의 엔진 이름은 settings 와 같다', async () => {
+  const fs = await import('node:fs');
+  for (const f of ['settings', 'glossary', 'segment', 'errors', 'cost', 'sites', 'vod', 'listen', 'guard']) {
+    assert.doesNotMatch(fs.readFileSync(new URL(`../lib/${f}.js`, import.meta.url), 'utf8'), /^import /m, `lib/${f}.js`);
+  }
+  const E = await import('../lib/errors.js');
+  const S = await import('../lib/settings.js');
+  assert.deepEqual(E.ENGINE_NAMES, S.ENGINE_NAMES);
 });

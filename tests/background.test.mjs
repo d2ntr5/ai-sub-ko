@@ -24,6 +24,8 @@ const fake = { changed: [], offscreen: false, offReplies: {}, toOff: [], toTab: 
 globalThis.chrome = {
   storage: { sync: area('sync'), local: area('local'), session: area('session'), onChanged: { addListener: f => fake.changed.push(f) } },
   runtime: {
+    id: 'ext',
+    getURL: p => `chrome-extension://ext/${p}`,
     onMessage: { addListener: f => listeners.push(f) },
     onInstalled: { addListener: f => fake.installed.push(f) },
     onStartup: { addListener: () => {} },
@@ -67,9 +69,10 @@ globalThis.fetch = async (url, init = {}) => {
 
 await import('../background.js');
 
-function send(msg) {
+const EXT_PAGE = { id: 'ext', url: 'chrome-extension://ext/popup.html' };
+function send(msg, sender = EXT_PAGE) {
   return new Promise(resolve => {
-    const ret = listeners[0](msg, {}, resolve);
+    const ret = listeners[0](msg, sender, resolve);
     if (ret !== true) resolve(undefined);
   });
 }
@@ -379,4 +382,16 @@ test('토큰 아끼기: Claude 분당 상한을 넘으면 LOCAL_RATE (API 안 �
   for (let i = 0; i < 70; i++) codes.push((await send({ type: 'f1ko-translate', text: `rate line ${i}`, packs: ['common'] })).code || 'ok');
   assert.ok(codes.includes('LOCAL_RATE'));
   assert.ok(calls.length - n0 <= 60, `API 는 60번까지 (${calls.length - n0})`);
+});
+
+test('보안: 콘텐츠 스크립트(사이트 페이지)는 허용한 명령만, 다른 확장은 아무것도', async () => {
+  const page = { id: 'ext', url: 'https://evil.example/', tab: { id: 7 } };
+  store.local.apiKey = 'sk-ant-test';
+  const n0 = calls.length;
+  assert.equal(await send({ type: 'f1ko-test', apiKey: 'sk-ant-other', text: 'x' }, page), undefined, '연결 테스트(키를 받음)는 확장 페이지만');
+  assert.equal(await send({ type: 'f1ko-site-add', host: 'evil.example' }, page), undefined, '사이트 추가는 확장 페이지만');
+  assert.equal(await send({ type: 'f1ko-listen-start', tabId: 1, streamId: 's' }, page), undefined);
+  assert.equal(calls.length, n0, 'API 를 부르지 않음');
+  assert.equal(await send({ type: 'f1ko-translate', text: 'x' }, { id: 'other-extension', url: 'chrome-extension://other/' }), undefined, '다른 확장');
+  assert.equal((await send({ type: 'f1ko-keys' }, page)).claude, true, '허용한 것은 됨 (키 값은 주지 않음)');
 });

@@ -33,7 +33,7 @@ Chrome 확장 (Manifest V3, 빌드 단계 없는 순수 JS, **macOS 전용**). F
 
 ## 코드 규칙
 
-- 순수 로직은 `lib/` (ES 모듈)에 두고 `tests/` 에서 `node --test`. 콘텐츠 스크립트는 import 를 못 하므로 `lib/` 를 `import(chrome.runtime.getURL(...))` 로 불러온다 (`web_accessible_resources`). 새 최상위 파일은 `scripts/package.sh` 목록과 `scripts/release.sh` 의 문법 확인 목록에도.
+- 순수 로직은 `lib/` (ES 모듈)에 두고 `tests/` 에서 `node --test`. 콘텐츠 스크립트는 import 를 못 하므로 `lib/` 를 `import(chrome.runtime.getURL(...))` 로 불러온다 (`web_accessible_resources`). 1.0.27 부터 `use_dynamic_url` (페이지가 설치 여부를 못 알아내게) — 이 주소의 모듈 안 import 는 크롬이 막으므로 **콘텐츠 스크립트가 쓰는 lib 는 하위 import 금지** (테스트가 확인). background 메시지는 콘텐츠 스크립트에 `FROM_CONTENT` 명령만 허용. 새 최상위 파일은 `scripts/package.sh` 목록과 `scripts/release.sh` 의 문법 확인 목록에도.
 - Claude 요청 (`lib/prompt.js`): 모델 기본 `claude-haiku-5-5`, `thinking: {type: 'adaptive'}` + `output_config.effort: 'low'` (문서 권장: 끄지 말고 effort 로. Sonnet 5.5 는 disabled 를 400 으로 거부. 생각도 max_tokens 에 들어가 2000) + `output_config.format` = JSON `{ko}` (structured outputs — 번역문 밖 해설이 자막에 섞이지 않게. prefill 은 400), `temperature`·`top_p` 보내지 않음(400), 지시문은 같은 묶음이면 매번 같은 글이어야 캐시 — 시각·랜덤 값 금지. Haiku 5.5 캐시 최소 512 토큰(테스트가 F1 지시문 길이를 확인).
 - Gemini 요청 (`lib/gemini.js`): 미리 번역은 JSON 스키마 `{lines, names}`, 줄 수가 같아야 한다. 무료 등급 한도(`GEMINI_LIMITS`: Flash Lite 분당 15·하루 500)를 넘지 않게 background 가 간격을 두고 센다. API 키 형식은 검사하지 않는다 (형식이 바뀜 — 연결 테스트로 확인).
 - 용어집 (`lib/glossary.js`): 묶음별 `{en, ko, kind, group}` (kind = ko · keep · fix). 0.4 까지의 `{drivers, teams, terms}` 는 `sanitizeGlossary` 가 F1 묶음으로 옮긴다 — 옛 형식 읽기를 지우지 말 것.

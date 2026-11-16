@@ -1,6 +1,6 @@
 # 개인정보처리방침 · Privacy Policy
 
-**AI 자막 번역 (ai-sub-ko)** 크롬 확장 · 시행일 2026-11-11 · 게시자 d2ntr5
+**AI 자막 번역 (ai-sub-ko)** 크롬 확장 · 시행일 2026-11-16 (Effective 2026-11-16) · 게시자 d2ntr5
 
 [English below](#english)
 
@@ -28,6 +28,9 @@
 
 ### 지우기
 - 확장을 지우면 브라우저에 저장된 키 · 용어집 · 설정이 함께 지워집니다. 상세 설정에서 키를 지우거나 용어집을 초기화할 수도 있습니다.
+
+### 크롬 웹 스토어 사용자 데이터 정책 (Limited Use)
+- Google API 에서 받은 정보의 사용은 Limited Use 요건을 포함한 크롬 웹 스토어 사용자 데이터 정책을 따릅니다.
 
 ### 문의
 - https://github.com/d2ntr5/ai-sub-ko/issues 또는 크롬 웹 스토어 등록정보의 연락처.
@@ -59,6 +62,9 @@
 
 ### Deleting data
 - Removing the extension deletes the keys, glossary and settings stored in the browser. You can also clear keys or reset the glossary in the options page.
+
+### Chrome Web Store User Data Policy (Limited Use)
+- The use of information received from Google APIs will adhere to the Chrome Web Store User Data Policy, including the Limited Use requirements.
 
 ### Contact
 - https://github.com/d2ntr5/ai-sub-ko/issues or the contact on the Chrome Web Store listing.

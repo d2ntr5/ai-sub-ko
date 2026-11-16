@@ -667,7 +667,7 @@
       if (seen && seen.tr === tr && seen.n === n) {
         if (Date.now() - seen.at > TRACK_STABLE_MS) {
           const id = `${location.origin}${location.pathname}#${tr.label || tr.language}`;
-          const cues = VOD.cuesFromTrack(tr.cues);
+          const cues = VOD.cuesFromTrack(tr.cues, SEG.clean);
           if (S.vod) extendVod(id, cues); else startVod(id, cues, tr);
         }
       } else {
@@ -687,6 +687,9 @@
 
   window.addEventListener('message', e => {
     if (e.source !== window || !e.data || typeof e.data.__aisubko !== 'string') return;
+    // yt-main.js(YouTube 에서만 도는 MAIN world)가 보내는 것. 다른 사이트에서는 그 페이지 스크립트가 가짜 자막을 넣어
+    // 사용자 키로 번역 요청을 일으킬 수 있으므로 받지 않는다 (1.0.27)
+    if (S.site?.id !== 'youtube' || !/(^|\.)youtube\.com$/.test(location.hostname)) return;
     if (e.data.__aisubko === 'timedtext') onTimedtext(String(e.data.url || ''), e.data.body);
     if (e.data.__aisubko === 'tracks') onTracks(e.data);
     if (e.data.__aisubko === 'untranslated' && S.enabled) showMsg('YouTube 자동 번역 자막을 끄고 영어 원문으로 바꿨어요 · 번역은 이 확장이 해요', 5000);
@@ -703,7 +706,7 @@
       return;
     }
     S.skipAsr = false;
-    const cues = VOD.parseJson3(body);
+    const cues = VOD.parseJson3(body, SEG.clean);
     if (cues.length) startVod(`yt:${info.videoId}:${info.lang}:${info.asr ? 'asr' : 'std'}`, cues);
   }
 
