@@ -386,10 +386,10 @@
     if (!btn) return;
     const on = S.enabled || !!S.listen;
     const e = on ? shownEngine() : '';
-    btn.textContent = e ? ENGINE_BADGE[e] : 'KO';
+    btn.textContent = e ? ENGINE_BADGE[e] : 'AI 번역';
     btn.className = e ? `on ${e}` : '';
     btn.style.display = on ? '' : 'none'; // 꺼져 있으면 버튼을 숨긴다 (켜기: ⌥K · 툴바 팝업)
-    btn.title = `${on ? `엔진: ${ENGINE_NAMES[e] || '멈춤'}` : '꺼짐'} · ⌥K 켜기/끄기 · ⌥O 원문 · ⌥L 음성 번역`;
+    btn.title = `${on ? `AI 번역 · 엔진: ${ENGINE_NAMES[e] || '멈춤'}` : '꺼짐'} · ⌥K 켜기/끄기 · ⌥O 원문 · ⌥L 음성 번역`;
   }
 
   function blockText() {
