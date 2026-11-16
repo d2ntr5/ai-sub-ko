@@ -1,0 +1,14 @@
+*{box-sizing:border-box}
+body{margin:0;width:1280px;height:800px;overflow:hidden;font-family:"Apple SD Gothic Neo","Pretendard",-apple-system,sans-serif}
+.bg{position:relative;width:1280px;height:800px;background:radial-gradient(1200px 700px at 85% 10%,rgba(125,211,252,.35),transparent 60%),linear-gradient(135deg,#14213d 0%,#1e3a8a 48%,#2563eb 100%);color:#fff;overflow:hidden}
+.copy{position:absolute;left:72px;top:0;bottom:0;width:400px;display:flex;flex-direction:column;justify-content:center;gap:18px}
+.eyebrow{display:flex;align-items:center;gap:10px;font-size:17px;font-weight:700;color:#bfdbfe;letter-spacing:.02em}
+.eyebrow img{width:30px;height:30px}
+h1{margin:0;font-size:44px;line-height:1.22;font-weight:800;letter-spacing:-.5px;text-wrap:balance}
+p{margin:0;font-size:19px;line-height:1.65;color:#dbe7ff}
+.win{position:absolute;right:56px;top:50%;transform:translateY(-50%);border-radius:12px;overflow:hidden;background:#1b1d24;box-shadow:0 30px 80px rgba(3,10,40,.55),0 0 0 1px rgba(255,255,255,.12)}
+.bar{height:34px;background:#2a2d36;display:flex;align-items:center;gap:7px;padding:0 14px}
+.bar i{width:11px;height:11px;border-radius:50%;background:#ff5f57}.bar i:nth-child(2){background:#febc2e}.bar i:nth-child(3){background:#28c840}
+.bar span{margin-left:14px;font-size:12px;color:#aab0bd;background:#1b1d24;border-radius:6px;padding:3px 12px}
+.shot{display:block;overflow:hidden;position:relative}
+.shot img{display:block;position:absolute;left:0;top:0}
