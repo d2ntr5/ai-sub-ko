@@ -10,6 +10,7 @@
 
 ## 빌드 · 릴리즈
 - 테스트 `make test`(= `node --test`), 묶기 `make dist VERSION=x.y.z` → `build/ai-sub-ko-x.y.z.zip`(직접 설치용) · `build/ai-sub-ko-x.y.z-store.zip`(크롬 웹 스토어용, manifest 가 맨 위), 릴리즈 `make publish VERSION=x.y.z` → 이 저장소 Release `vx.y.z`. **릴리즈 · 스토어 제출은 사용자가 지시할 때만.**
+- **스토어는 매번 올리지 않는다 (사용자 2026-11-17).** 고칠 때마다 이 저장소 Release 까지만 하고, 스토어에는 사용자가 바뀐 점을 보고 정한 **누적 최종 버전** 하나만 올린다. 보고에 「스토어 업로드」를 할 일로 매번 적지 않는다 — 마지막 스토어 버전 이후 쌓인 바뀐 점만 알린다.
 - 크롬 웹 스토어 게시자 계정은 사용자 것이다. 업로드 · 검토 제출 · 결제 · 동의는 사용자가 직접 한다. 스토어 자료는 `store/`.
 - 버전 · 바뀐 점은 `manifest.json` · `CHANGELOG.md`.
 
