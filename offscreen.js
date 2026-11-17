@@ -8,6 +8,7 @@ const SILENCE_MS = 30_000;        // 이만큼 조용하면 알림 (영상이 �
 const SILENCE_RMS = 0.003;
 const FAIL_WINDOW_MS = 60_000;    // 1분 안에
 const FAIL_MAX = 3;               // 3번 실패하면 멈춤
+const NO_TEXT_MS = 20_000;        // 소리가 이만큼 들렸는데 받아 적은 글이 하나도 없으면 알림 (1.0.31, 윈도우 크롬 157 은 오류 없이 결과 0)
 
 let cur = null; // { tabId, lang, stream, ctx, analyser, rec, stopped, fails: [], sent, quietSince, silenceSent, timer }
 
@@ -30,7 +31,7 @@ async function start({ tabId, streamId, lang, phrases = [], boost = 2 }) {
   const analyser = ctx.createAnalyser();
   analyser.fftSize = 2048;
   src.connect(analyser);
-  const c = { tabId, lang, code: L.code, phrases, boost, stream, ctx, analyser, rec: null, stopped: false, fails: [], sent: 0, quietSince: Date.now(), silenceSent: false };
+  const c = { tabId, lang, code: L.code, phrases, boost, stream, ctx, analyser, rec: null, stopped: false, fails: [], sent: 0, quietSince: Date.now(), silenceSent: false, loudMs: 0, gotText: false, noTextSent: false };
   cur = c;
   stream.getAudioTracks()[0].addEventListener('ended', () => { if (cur === c) { stop('ended'); send(tabId, 'stopped', { reason: 'ended' }); } });
   c.timer = setInterval(() => watchSilence(c), 1000);
@@ -54,6 +55,7 @@ function listen(c) {
   r.onresult = e => {
     if (cur !== c || c.rec !== r) return;
     const res = e.results;
+    c.gotText = true;
     // 새로 확정된 결과는 하나씩 final 로, 나머지(아직 안 확정)는 이어 붙여 중간 글로
     while (c.sent < res.length && res[c.sent].isFinal) {
       send(c.tabId, 'text', { text: res[c.sent][0].transcript, final: true });
@@ -91,7 +93,12 @@ function watchSilence(c) {
   for (const v of buf) sum += v * v;
   const rms = Math.sqrt(sum / buf.length);
   const now = Date.now();
-  if (rms > SILENCE_RMS) { c.quietSince = now; c.silenceSent = false; return; }
+  if (rms > SILENCE_RMS) {
+    c.quietSince = now; c.silenceSent = false;
+    c.loudMs += 1000; // 1초마다 부름
+    if (!c.gotText && !c.noTextSent && c.loudMs >= NO_TEXT_MS) { c.noTextSent = true; send(c.tabId, 'no-text'); }
+    return;
+  }
   if (!c.silenceSent && now - c.quietSince > SILENCE_MS) { c.silenceSent = true; send(c.tabId, 'silence'); }
 }
 
