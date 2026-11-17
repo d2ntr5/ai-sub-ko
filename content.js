@@ -151,7 +151,9 @@
   });
 
   function resetBlocks() {
-    S.block = {}; S.cache.clear(); updateBadge(); maybeRunVod();
+    S.block = {}; S.cache.clear();
+    S.used = ''; // 대신 번역 스위치를 끄는 등 설정이 바뀌면 지난 엔진 표시를 남기지 않는다 (1.0.29)
+    updateBadge(); maybeRunVod();
   }
 
   // ===== 화면 =====
@@ -386,7 +388,7 @@
     if (!btn) return;
     const on = S.enabled || !!S.listen;
     const e = on ? shownEngine() : '';
-    btn.textContent = e ? ENGINE_BADGE[e] : 'AI 번역';
+    btn.textContent = e ? ENGINE_BADGE[e] : 'AI 번역·멈춤'; // 켜져 있는데 쓸 엔진이 없음 (키 오류 + 대신 번역 꺼짐 등)
     btn.className = e ? `on ${e}` : '';
     btn.style.display = on ? '' : 'none'; // 꺼져 있으면 버튼을 숨긴다 (켜기: ⌥K · 툴바 팝업)
     btn.title = `${on ? `AI 번역 · 엔진: ${ENGINE_NAMES[e] || '멈춤'}` : '꺼짐'} · ⌥K 켜기/끄기 · ⌥O 원문 · ⌥L 음성 번역`;
@@ -837,6 +839,18 @@
     }
   }
 
+  /** 읽을 수 있는 영어(또는 언어 모름) 자막 트랙에 줄이 있음 = 자막은 찾았고 지금은 말이 없는 구간 (1.0.29) */
+  function trackHasLines() {
+    if (S.vod?.cues?.length) return true;
+    for (const v of allVideos()) {
+      for (const tr of v.textTracks || []) {
+        if (tr.mode === 'disabled' || !/subtitles|captions/.test(tr.kind || 'subtitles')) continue;
+        if ((isEnTrack(tr) || !tr.language) && tr.cues && tr.cues.length) return true;
+      }
+    }
+    return false;
+  }
+
   function noCaptionHint() {
     if (S.site?.id === 'f1') return '영어 자막이 안 보여요 — 플레이어 아래 CC 에서 <b>English</b> 를 켜 주세요';
     if (S.site?.id === 'youtube') return '영어 자막이 안 보여요 — 플레이어의 자막(CC) 버튼으로 영어 자막을 켜 주세요';
@@ -871,7 +885,7 @@
     let src = Date.now() - S.seekAt < SEEK_SETTLE_MS ? '' : readSource();
     if (SEG.isKorean(src)) src = ''; // 한국어 자막은 번역하지 않는다
     if (src) S.lastSeenAt = Date.now();
-    else if (!S.warned && Date.now() - Math.max(S.enabledAt, S.lastSeenAt) > NO_CAPTION_WARN_MS) {
+    else if (!S.warned && !trackHasLines() && Date.now() - Math.max(S.enabledAt, S.lastSeenAt) > NO_CAPTION_WARN_MS) {
       S.warned = true;
       showMsg(noCaptionHint(), 10000);
       if (S.cfg.listenWhen === 'auto' && !S.listenAsked) suggestListen();
