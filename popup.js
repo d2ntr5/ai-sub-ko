@@ -214,8 +214,9 @@ async function refreshStatus() {
   if (st.koHuman) { dotSrc.className = 'dot ok'; $('srcText').innerHTML = '<b>사람이 만든 한국어 자막</b> · 번역 안 함'; }
   else if (st.skipAsr) { dotSrc.className = 'dot warn'; $('srcText').innerHTML = '<b>자동 생성 자막</b> · 번역하지 않게 해 둠'; }
   else if (!st.enabled) { dotSrc.className = 'dot'; $('srcText').textContent = '켜면 영어 자막을 찾아요'; }
+  else if (st.ad) { dotSrc.className = 'dot'; $('srcText').textContent = 'YouTube 광고 중 · 끝나면 자막을 찾아요'; }
   else if (st.found) { dotSrc.className = 'dot ok'; $('srcText').innerHTML = `<b>영어 자막 감지됨</b> · ${esc(st.source)}`; }
-  else { dotSrc.className = 'dot err'; $('srcText').innerHTML = '<b>영어 자막 못 찾음</b> · CC 에서 영어를 켜 주세요'; }
+  else { dotSrc.className = 'dot err'; $('srcText').innerHTML = '<b>영어 자막 못 찾음</b> · CC 에서 영어를 켜거나, 자막이 없는 영상이면 아래 <b>음성 번역 시작</b>'; }
 
   if (st.block) { dotEng.className = 'dot warn'; $('engText').innerHTML = `<b>${esc(st.engineName || '자막 멈춤')}</b> · ${esc(st.block.split(' — ')[0])}`; }
   else if (st.vod && st.engine === 'lite') {

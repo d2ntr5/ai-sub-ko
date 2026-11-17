@@ -730,7 +730,10 @@
     applyHideOriginal();
     if (S.enabled && !S.koHuman && !tracks.some(t => /^en\b/i.test(t.lang || ''))) {
       S.warned = true;
-      showMsg('이 영상에는 영어 자막이 없어요. 자막(CC)에 영어나 ‘영어 (자동 생성)’ 이 생기면 바로 시작할게요', 8000);
+      const lead = '이 영상에는 영어 자막이 없어요. 자막(CC)에 영어나 ‘영어 (자동 생성)’ 이 생기면 바로 시작할게요';
+      showMsg(lead, 8000);
+      // 1.0.31: 여기서 warned 를 세워 10초 뒤 음성 번역 안내가 영영 안 뜨던 문제 (자막 없는 YouTube 라이브 뉴스 — 사용자 문의)
+      if (S.cfg.listenWhen === 'auto' && !S.listenAsked && !S.listen) suggestListen(lead);
     }
   }
 
@@ -929,8 +932,16 @@
     else if (m.kind === 'stopped') listenOff(m.reason);
     else if (m.kind === 'notice') listenNotice(m.reason, m.lang);
     else if (!S.listen) return;
-    else if (m.kind === 'text') onListenText(String(m.text || ''), !!m.final);
+    else if (m.kind === 'text') {
+      if (S.listen.noText) { S.listen.noText = false; showMsg('', 0, true); } // 글이 나오기 시작하면 「받아 적은 글이 없어요」 를 지운다
+      onListenText(String(m.text || ''), !!m.final);
+    }
     else if (m.kind === 'restart') S.listen.seg.restart();
+    else if (m.kind === 'no-text') {
+      // 소리는 들리는데 음성 인식이 글을 하나도 안 냄 (오류도 없음) — 아무 안내 없이 비어 있던 것 (1.0.31)
+      showMsg('20초 넘게 소리가 들리는데 받아 적은 글이 없어요 · 음악만 나오는 구간이면 그대로 두세요. 말소리가 나오는데도 계속 비어 있으면 이 크롬의 기기 안 음성 인식이 동작하지 않는 것이에요 — 크롬을 업데이트한 뒤 다시 시작해 보시고, 그래도 안 되면 팝업의 「진단 복사」를 보내 주세요', 0, true);
+      S.listen.noText = true;
+    }
     else if (m.kind === 'silence') {
       const v = mainVideo();
       if (v && !v.paused) showMsg('30초 동안 소리가 없어요 · 영상이 멈췄거나 탭 소리가 꺼져 있는지 봐 주세요', 8000, true);
@@ -976,7 +987,7 @@
   }
 
   /** 사이트 자막이 없을 때 (또는 늘 소리로): 쓸 수 있으면 ⌥L 을 권하고, 못 쓰면 그 이유를 */
-  async function suggestListen() {
+  async function suggestListen(lead = noCaptionHint()) {
     if (S.listenAsked || S.listen) return;
     S.listenAsked = true;
     let r = null;
@@ -985,12 +996,12 @@
     // 자막을 못 찾은 경우(auto)는 「CC 켜기 · 자막 직접 고르기」 안내를 지우지 않고 음성 번역을 덧붙인다
     if (r.ok) {
       showMsg(S.cfg.listenWhen === 'always'
-        ? '소리를 받아 적어 번역할 수 있어요 · 아이콘이나 <b>⌥L</b> 을 누르면 음성 번역을 시작해요'
-        : `${noCaptionHint()}<br>자막이 없는 영상이면 아이콘이나 <b>⌥L</b> 로 음성 번역을 시작해요`, 15000, true);
+        ? '소리를 받아 적어 번역할 수 있어요 · 툴바의 이 확장 아이콘 › <b>음성 번역 시작</b>, 또는 <b>⌥L</b>'
+        : `${lead}<br>소리를 받아 적어 번역할 수 있어요 · 툴바의 이 확장 아이콘 › <b>음성 번역 시작</b>, 또는 <b>⌥L</b>`, 30000, true);
     }
     else if (r.reason !== 'off') {
       const t = LIS.reasonText(r.reason, S.cfg.listenLang, LIS.chromeVersion(navigator.userAgent));
-      showMsg(`${noCaptionHint()}<br>음성 번역도 쓸 수 없어요 — ${esc(t.title)} · ${esc(t.fix)}`, 15000, true);
+      showMsg(`${lead}<br>음성 번역도 쓸 수 없어요 — ${esc(t.title)} · ${esc(t.fix)}`, 30000, true);
     }
   }
 
@@ -1182,7 +1193,8 @@
         enabled: S.enabled,
         site: S.site?.name || location.hostname,
         siteOn: S.siteOn,
-        found: Date.now() - S.lastSeenAt < 15_000 && !!S.lastSeenAt,
+        found: !S.inAd && Date.now() - S.lastSeenAt < 15_000 && !!S.lastSeenAt, // 광고 중에는 lastSeenAt 을 미뤄 둘 뿐 자막을 찾은 게 아님
+        ad: !!S.inAd,
         source: S.source,
         engine: e,
         engineName: ENGINE_NAMES[e] || '',
@@ -1237,7 +1249,7 @@
       // 주소는 경로까지만 — 강의 사이트 주소의 ?token= 같은 값이 이슈에 붙여 넣어지지 않게
       url: location.origin + location.pathname, version: chrome.runtime.getManifest().version,
       chrome: (navigator.userAgent.match(/Chrome\/([\d.]+)/) || [])[1] || '',
-      enabled: S.enabled, engine: shownEngine(), listen: S.listen ? S.listen.lang || true : false,
+      enabled: S.enabled, engine: shownEngine(), listen: S.listen ? S.listen.lang || true : false, listenNoText: !!S.listen?.noText,
       blocks: Object.fromEntries(Object.entries(S.block).filter(([, b]) => Date.now() < b.until).map(([e, b]) => [e, b.code])),
       frame: window === top ? 'top' : 'iframe', site: S.site?.id || '', videos: allVideos().length,
       source: S.source, picked: S.pickSel, mode: S.mode, vod: S.vod ? S.vod.cues.length : 0, packs: S.packs,
