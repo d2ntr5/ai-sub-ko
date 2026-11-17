@@ -3,7 +3,7 @@ import { modelState, downloadModel, MODEL_TEXT } from './lib/translator.js';
 import { BUILTIN_SITES, siteFor, originPattern } from './lib/sites.js';
 import { packName } from './lib/glossary.js';
 import { dayKey, costUsd, ptDayKey } from './lib/cost.js';
-import { checkSupport, reasonText, captureReason, chromeVersion, LISTEN_LANGS } from './lib/listen.js';
+import { checkSupport, reasonText, captureReason, chromeVersion, LISTEN_LANGS, noTranslatorText } from './lib/listen.js';
 
 const $ = id => document.getElementById(id);
 let cfg = normalize({});
@@ -232,7 +232,7 @@ async function refreshStatus() {
 
 // ===== 음성 번역 (1.0): 쓸 수 없으면 단추를 회색으로 두고 이유 · 해결을 단추 아래에 늘 보인다 =====
 const SR = self.SpeechRecognition || self.webkitSpeechRecognition;
-const listen = { reason: '', listening: false, installing: false, failed: false, busy: false };
+const listen = { reason: '', listening: false, installing: false, failed: false, busy: false, trModel: 'available', trLoading: '' };
 
 /** 크롬 자체 페이지 · 웹 스토어는 탭 소리를 넘겨주지 않는다 */
 function pageReason() {
@@ -253,6 +253,8 @@ async function refreshListen() {
     if (reason === 'no-pack' && listen.failed) reason = 'pack-failed';
   }
   if (!listen.busy || reason !== 'ok') listen.reason = listen.sticky || reason;
+  // 음성 번역 순서는 Claude → 크롬 내장. Claude 키가 없으면 크롬 번역 모델이 있어야 한국어가 나온다
+  listen.trModel = keys.claude ? 'available' : await modelState(cfg.listenLang);
   renderListen();
 }
 
@@ -271,6 +273,12 @@ function renderListen() {
     note.className = 'listen-note ok';
     $('listenTitle').textContent = `음성 번역 중 · 크롬 내장 음성 인식 (맥 안) · ${LISTEN_LANGS[lang].name} → 한국어`;
     $('listenFix').textContent = '크롬 탭에 「공유 중」 표시가 떠요. 소리는 그대로 들려요.';
+    if (listen.trModel !== 'available') {
+      const n = noTranslatorText(lang, listen.trModel);
+      note.className = 'listen-note warn';
+      $('listenFix').textContent = `${n.title} · ${n.fix.replace(/ 지금 시작하면.*$/, '')}`;
+      showTrButton(n);
+    }
     return;
   }
   const r = listen.reason || 'unknown';
@@ -283,9 +291,24 @@ function renderListen() {
   $('packBtn').disabled = listen.installing;
   note.className = `listen-note ${r === 'ok' ? 'ok' : ['no-pack', 'downloading', 'off'].includes(r) ? 'warn' : 'err'}`;
   $('listenTitle').textContent = r === 'ok' ? `✓ ${t.title}` : t.title;
+  if (r === 'ok' && listen.trModel !== 'available') {
+    // 받아 적기는 되지만 한국어가 안 나옴: 시작은 막지 않고, 이유와 번역 모델 받기를 단추 아래에 늘 보인다
+    const n = noTranslatorText(lang, listen.trModel);
+    note.className = 'listen-note warn';
+    $('listenTitle').textContent = listen.trLoading || n.title;
+    $('listenFix').textContent = n.fix;
+    showTrButton(n);
+    return;
+  }
   $('listenFix').textContent = r !== 'ok' ? t.fix
     : listen.other ? '다른 탭에서 음성 번역 중이에요 · 여기서 시작하면 그 탭은 멈춰요 (한 번에 한 탭만).'
       : '탭 소리를 맥 안에서 받아 적어 한국어로 번역해요. 소리는 맥 밖으로 나가지 않아요.';
+}
+
+function showTrButton(n) {
+  $('packBtn').hidden = !n.action && !listen.trLoading;
+  $('packBtn').textContent = '번역 모델 받기';
+  $('packBtn').disabled = !!listen.trLoading;
 }
 
 $('listenLang').addEventListener('click', e => {
@@ -319,6 +342,22 @@ $('listenBtn').addEventListener('click', async () => {
 });
 
 $('packBtn').addEventListener('click', async () => {
+  if (listen.reason === 'ok' && listen.trModel !== 'available') {
+    // 크롬 번역 모델 (원문 언어 → 한국어). 크롬이 사용자 클릭 안에서만 받게 해 준다
+    const src = cfg.listenLang;
+    listen.trLoading = '번역 모델 받기 시작… 끝날 때까지 팝업을 열어 두세요';
+    renderListen();
+    try {
+      await downloadModel(p => { listen.trLoading = `번역 모델 받는 중 ${Math.round(p * 100)}%`; renderListen(); }, src);
+      listen.trLoading = '';
+    } catch (e) {
+      listen.trLoading = `번역 모델을 받지 못했어요: ${e.message}`;
+      setTimeout(() => { listen.trLoading = ''; refreshListen(); }, 6000);
+    }
+    refreshModel();
+    refreshListen();
+    return;
+  }
   const code = LISTEN_LANGS[cfg.listenLang].code;
   listen.installing = true; listen.failed = false; listen.sticky = '';
   refreshListen();
