@@ -460,8 +460,9 @@
     if (!warned[src] && r?.state && r.state !== 'error') {
       warned[src] = true;
       const what = src === 'ja' ? '일본어 → 한국어 크롬 번역 모델' : '크롬 번역 모델';
-      showMsg(r.state === 'unavailable' ? `이 Mac 에서는 ${what}을 쓸 수 없어요`
-        : `${what}을 아직 받지 않았어요 · 팝업이나 <u data-options="1">상세 설정</u>에서 내려받아 주세요`, 8000);
+      // 음성 번역 시작 안내(중요)에 묻혀 안 보이던 것 (1.0.30): 중요로 띄워 원문만 나오는 이유를 알린다
+      showMsg(r.state === 'unavailable' ? `이 Mac 에서는 ${what}을 쓸 수 없어요 — 원문만 보여요 · 상세 설정에서 Claude 키를 넣어 주세요`
+        : `${what}을 아직 받지 않아 원문만 보여요 · 팝업 「음성 번역」의 「번역 모델 받기」를 눌러 주세요`, 10000, true);
     }
     throw new Error('크롬 번역 불가');
   }

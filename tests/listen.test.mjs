@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { checkSupport, reasonText, captureReason, tidy, units, ListenSegmenter, hintPhrases, chromeVersion, LISTEN_LANGS } from '../lib/listen.js';
+import { checkSupport, reasonText, captureReason, tidy, units, ListenSegmenter, hintPhrases, chromeVersion, LISTEN_LANGS, noTranslatorText } from '../lib/listen.js';
 
 class FakeSR { constructor() {} }
 FakeSR.prototype.processLocally = false;
@@ -119,4 +119,16 @@ test('LISTEN_LANGS: 영어 · 일본어', () => {
   assert.equal(LISTEN_LANGS.en.code, 'en-US');
   assert.equal(LISTEN_LANGS.ja.code, 'ja-JP');
   assert.equal(LISTEN_LANGS.ja.tr, 'ja');
+});
+
+test('noTranslatorText: 키 없음 + 모델 안 받음 → 번역 모델 받기 단추 (1.0.30)', () => {
+  const a = noTranslatorText('en', 'downloadable');
+  assert.equal(a.action, 'model');
+  assert.match(a.fix, /영어 → 한국어/);
+  assert.match(a.fix, /Claude 키/);
+  assert.equal(noTranslatorText('ja', 'downloading').action, null);
+  assert.match(noTranslatorText('ja', 'downloadable').fix, /일본어 → 한국어/);
+  const u = noTranslatorText('en', 'unavailable');
+  assert.equal(u.action, null);
+  assert.match(u.fix, /Claude 키/);
 });
