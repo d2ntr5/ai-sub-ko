@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { checkSupport, reasonText, captureReason, tidy, units, ListenSegmenter, hintPhrases, chromeVersion, LISTEN_LANGS, noTranslatorText } from '../lib/listen.js';
+import { checkSupport, reasonText, captureReason, tidy, units, ListenSegmenter, hintPhrases, chromeVersion, LISTEN_LANGS, noTranslatorText, osOf, keyText } from '../lib/listen.js';
 
 class FakeSR { constructor() {} }
 FakeSR.prototype.processLocally = false;
@@ -131,4 +131,33 @@ test('noTranslatorText: 키 없음 + 모델 안 받음 → 번역 모델 받기 
   const u = noTranslatorText('en', 'unavailable');
   assert.equal(u.action, null);
   assert.match(u.fix, /Claude 키/);
+});
+
+test('osOf: userAgentData · platform · userAgent 로 맥 · 윈도우 · 그 밖 (1.0.32)', () => {
+  assert.equal(osOf({ userAgentData: { platform: 'macOS' } }), 'mac');
+  assert.equal(osOf({ platform: 'MacIntel' }), 'mac');
+  assert.equal(osOf({ userAgentData: { platform: 'Windows' } }), 'win');
+  assert.equal(osOf({ platform: 'Win32' }), 'win');
+  assert.equal(osOf({ userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/157.0' }), 'win');
+  assert.equal(osOf({ platform: 'Linux x86_64' }), 'other');
+  assert.equal(osOf({}), 'other');
+});
+
+test('checkSupport: 맥이 아니면 기능이 있어도 os (윈도우는 음성 번역 미지원)', async () => {
+  const SR = fake({ 'en-US': 'available' });
+  assert.equal((await checkSupport(SR, 'en', 'mac')).reason, 'ok');
+  assert.equal((await checkSupport(SR, 'en', 'win')).reason, 'os');
+  assert.equal((await checkSupport(SR, 'en', 'other')).ok, false);
+  const t = reasonText('os');
+  assert.match(t.title, /macOS/);
+  assert.match(t.fix, /윈도우/);
+  assert.equal(t.action, null);
+});
+
+test('keyText: 윈도우는 ⌥ → Alt, ⌘ → Ctrl, 맥은 그대로', () => {
+  assert.equal(keyText('<b>⌥ Option + K</b> 켜기', 'win'), '<b>Alt + K</b> 켜기');
+  assert.equal(keyText('⌥K 켜기/끄기 · ⌥O 원문 · ⌥L 음성 번역', 'win'), 'Alt+K 켜기/끄기 · Alt+O 원문 · Alt+L 음성 번역');
+  assert.equal(keyText('새로고침(⌘R)', 'win'), '새로고침(Ctrl+R)');
+  assert.equal(keyText('⌥L · ⌘R', 'mac'), '⌥L · ⌘R');
+  assert.equal(keyText(null, 'win'), '');
 });

@@ -13,6 +13,7 @@
     load('lib/cost.js'), load('lib/sites.js'), load('lib/vod.js'), load('lib/listen.js'), load('lib/guard.js')
   ]);
   const { normalize, pickEngine, hasKey, ENGINE_BADGE, ENGINE_NAMES } = SET;
+  const OS = LIS.osOf(navigator); // 윈도우면 ⌥ · ⌘ 표기를 Alt · Ctrl 로 (1.0.32)
 
   const POLL_MS = 200;
   const CONTEXT_LINES = 4;            // 한 줄 번역에 넘길 직전 원문 줄 수
@@ -292,7 +293,7 @@
     // 중요한 안내가 떠 있는 동안에는 덜 중요한 글도, 덜 중요한 지우기('')도 덮지 않는다
     if (!important && Date.now() < (showMsg._until || 0)) return;
     showMsg._until = important && html ? Date.now() + (ms || 8000) : 0;
-    msg.innerHTML = html;
+    msg.innerHTML = LIS.keyText(html, OS);
     msg.style.display = html ? 'block' : 'none';
     clearTimeout(showMsg._t);
     if (html && ms) showMsg._t = setTimeout(() => (msg.style.display = 'none'), ms);
@@ -391,7 +392,7 @@
     btn.textContent = e ? ENGINE_BADGE[e] : 'AI 번역·멈춤'; // 켜져 있는데 쓸 엔진이 없음 (키 오류 + 대신 번역 꺼짐 등)
     btn.className = e ? `on ${e}` : '';
     btn.style.display = on ? '' : 'none'; // 꺼져 있으면 버튼을 숨긴다 (켜기: ⌥K · 툴바 팝업)
-    btn.title = `${on ? `AI 번역 · 엔진: ${ENGINE_NAMES[e] || '멈춤'}` : '꺼짐'} · ⌥K 켜기/끄기 · ⌥O 원문 · ⌥L 음성 번역`;
+    btn.title = LIS.keyText(`${on ? `AI 번역 · 엔진: ${ENGINE_NAMES[e] || '멈춤'}` : '꺼짐'} · ⌥K 켜기/끄기 · ⌥O 원문 · ⌥L 음성 번역`, OS);
   }
 
   function blockText() {
