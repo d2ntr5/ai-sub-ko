@@ -3,7 +3,7 @@ import { modelState, downloadModel, MODEL_TEXT } from './lib/translator.js';
 import { BUILTIN_SITES, siteFor, originPattern } from './lib/sites.js';
 import { packName } from './lib/glossary.js';
 import { dayKey, costUsd, ptDayKey } from './lib/cost.js';
-import { checkSupport, reasonText, captureReason, chromeVersion, LISTEN_LANGS, noTranslatorText } from './lib/listen.js';
+import { checkSupport, reasonText, captureReason, chromeVersion, LISTEN_LANGS, noTranslatorText, watchKeys } from './lib/listen.js';
 
 const $ = id => document.getElementById(id);
 let cfg = normalize({});
@@ -417,11 +417,13 @@ $('pick').addEventListener('click', async () => {
   }
 });
 
+watchKeys(document.body);
+
 (async () => {
   cfg = normalize(await chrome.storage.sync.get(null));
   const { enabled = false } = await chrome.storage.local.get('enabled');
   $('enabled').checked = enabled;
-  $('ver').textContent = `v${chrome.runtime.getManifest().version} · macOS 전용`;
+  $('ver').textContent = `v${chrome.runtime.getManifest().version} · macOS · Windows`;
   [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
   const o = tab?.url ? originPattern(tab.url) : null;
   if (o && cfg.customSites.includes(o.host)) customGranted = await chrome.permissions.contains({ origins: [o.pattern] }).catch(() => true);

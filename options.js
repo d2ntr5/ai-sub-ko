@@ -4,7 +4,7 @@ import { exportPacks, toJSON, toCSV, parseImport, previewImport, applyImport, ex
 import { BUILTIN_SITES, hostFromInput } from './lib/sites.js';
 import { dayKey, costUsd, cacheHitRate, sumDays, ptDayKey, liteRemaining, shortWhen } from './lib/cost.js';
 import { modelState, downloadModel, MODEL_TEXT } from './lib/translator.js';
-import { checkSupport, reasonText, chromeVersion, LISTEN_LANGS, LISTEN_LANG_IDS } from './lib/listen.js';
+import { checkSupport, reasonText, chromeVersion, LISTEN_LANGS, LISTEN_LANG_IDS, watchKeys } from './lib/listen.js';
 
 const $ = id => document.getElementById(id);
 let cfg = normalize({});
@@ -570,4 +570,5 @@ chrome.storage.onChanged.addListener((ch, area) => {
   if (area === 'sync' && (ch.customSites || ch.siteOn)) chrome.storage.sync.get(null).then(v => { cfg = normalize(v); renderSites(); });
 });
 
+watchKeys(document.body);
 load();
