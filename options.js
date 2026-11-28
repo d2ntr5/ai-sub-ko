@@ -5,6 +5,7 @@ import { BUILTIN_SITES, hostFromInput } from './lib/sites.js';
 import { dayKey, costUsd, cacheHitRate, sumDays, ptDayKey, liteRemaining, shortWhen } from './lib/cost.js';
 import { modelState, downloadModel, MODEL_TEXT } from './lib/translator.js';
 import { checkSupport, reasonText, chromeVersion, LISTEN_LANGS, LISTEN_LANG_IDS, watchKeys } from './lib/listen.js';
+import { SAFARI, watchBrand } from './lib/platform.js';
 
 const $ = id => document.getElementById(id);
 let cfg = normalize({});
@@ -51,7 +52,8 @@ async function load() {
   $('ver').textContent = v.slice(1);
   renderModels();
   renderForm();
-  renderKeys(!!local.apiKey, !!local.geminiKey);
+  if (SAFARI) { const k = await chrome.runtime.sendMessage({ type: 'f1ko-keys' }).catch(() => null); renderKeys(!!k?.claude, !!k?.gemini); } // 키는 맥 앱에
+  else renderKeys(!!local.apiKey, !!local.geminiKey);
   renderTests();
   refreshModel();
   refreshListen();
@@ -99,8 +101,8 @@ function renderKeys(claude = keyState.claude, gemini = keyState.gemini) {
   keyState = { claude, gemini };
   const set = (id, kind, text) => { $(id).className = `kst ${kind}`; $(id).innerHTML = `<span class="dot"></span>${text}`; };
   const t = e => (lastTest[e] ? ` · 테스트 ${lastTest[e].ok ? '✓' : '✗'} ${shortWhen(lastTest[e].at)}` : '');
-  set('kClaude', claude ? (lastTest.claude && !lastTest.claude.ok ? 'warn' : 'ok') : '', claude ? `키 있음${t('claude')} · 라이브에 써요` : '키 없음 · 아래 Claude API 에서 넣어 주세요');
-  set('kLite', gemini ? (lastTest.lite && !lastTest.lite.ok ? 'warn' : 'ok') : '', gemini ? `키 있음${t('lite')} · 일반 영상에 써요` : '키 없음 · 아래 Gemini API 에서 넣어 주세요');
+  set('kClaude', claude ? (lastTest.claude && !lastTest.claude.ok ? 'warn' : 'ok') : '', claude ? `키 있음${t('claude')} · 라이브에 써요` : SAFARI ? '키 없음 · AI 자막 번역 앱 › 설정 › 엔진에서 넣어 주세요' : '키 없음 · 아래 Claude API 에서 넣어 주세요');
+  set('kLite', gemini ? (lastTest.lite && !lastTest.lite.ok ? 'warn' : 'ok') : '', gemini ? `키 있음${t('lite')} · 일반 영상에 써요` : SAFARI ? '키 없음 · AI 자막 번역 앱 › 설정 › 엔진에서 넣어 주세요' : '키 없음 · 아래 Gemini API 에서 넣어 주세요');
 }
 
 // ===== 마지막 연결 테스트 (저장하거나 페이지를 다시 열어도 남는다) =====
@@ -139,9 +141,9 @@ async function refreshModel() {
   $('modelText').innerHTML = st === 'available' ? '<b>받음 ✓</b> · 인터넷 없이도 번역해요' : `<b>${MODEL_TEXT[st]}</b>`;
   $('modelDl').hidden = $('modelHint').hidden = !['downloadable', 'downloading'].includes(st);
   $('kChrome').className = `kst ${kind === 'err' ? '' : kind}`;
-  $('kChrome').innerHTML = `<span class="dot"></span>${st === 'available' ? '모델 받음 · 대신 번역에 써요' : st === 'unsupported' || st === 'unavailable' ? MODEL_TEXT[st] : '번역 모델을 아직 받지 않았어요 · 아래에서 받아 주세요'}`;
+  $('kChrome').innerHTML = `<span class="dot"></span>${st === 'available' ? '모델 받음 · 대신 번역에 써요' : st === 'unsupported' || st === 'unavailable' || SAFARI ? MODEL_TEXT[st] : '번역 모델을 아직 받지 않았어요 · 아래에서 받아 주세요'}`;
   // 음성 번역 원문이 일본어면 일본어 → 한국어 모델도
-  const ja = cfg.listenLang === 'ja' ? await modelState('ja') : 'available';
+  const ja = cfg.listenLang === 'ja' && !SAFARI ? await modelState('ja') : 'available';
   $('jaModelRow').hidden = ja === 'available';
   $('jaModelText').textContent = `일본어 → 한국어 (음성 번역 원문이 일본어일 때) · ${MODEL_TEXT[ja] || ''}`;
   $('jaModelDl').hidden = !['downloadable', 'downloading'].includes(ja);
@@ -570,5 +572,12 @@ chrome.storage.onChanged.addListener((ch, area) => {
   if (area === 'sync' && (ch.customSites || ch.siteOn)) chrome.storage.sync.get(null).then(v => { cfg = normalize(v); renderSites(); });
 });
 
+document.documentElement.classList.toggle('safari', SAFARI);
+if (SAFARI) {
+  const openApp = () => chrome.runtime.sendMessage({ type: 'f1ko-open-app', page: 'engine' });
+  $('macOpen').addEventListener('click', openApp);
+  for (const b of document.querySelectorAll('.appKeys')) b.addEventListener('click', openApp);
+}
 watchKeys(document.body);
+watchBrand(document.body);
 load();

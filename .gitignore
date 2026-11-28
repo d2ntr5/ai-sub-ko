@@ -1,2 +1,5 @@
 build/
 node_modules/
+safari/build/
+safari/AISubKo.xcodeproj/
+safari/DerivedData/

@@ -1,6 +1,6 @@
 # 개인정보처리방침 · Privacy Policy
 
-**AI 자막 번역 (ai-sub-ko)** 크롬 확장 · 시행일 2026-11-17 (Effective 2026-11-17) · 게시자 d2ntr5
+**AI 자막 번역 (ai-sub-ko)** 크롬 확장 · Safari 확장(맥 앱) · 시행일 2026-11-29 (Effective 2026-11-29) · 게시자 d2ntr5
 
 [English below](#english)
 
@@ -24,6 +24,13 @@
 | API 키 (Anthropic · Google) | 브라우저 로컬 저장소 (`chrome.storage.local`, 동기화 안 됨) | 그 키를 발급한 회사의 API를 부를 때만 |
 | 용어집 · 사용량 기록 | 브라우저 로컬 저장소 | 보내지 않음 |
 | 설정 (보기 · 엔진 · 상한, 사용자가 더한 사이트 주소) | `chrome.storage.sync` — 사용자가 크롬 동기화를 켜 두면 사용자 자신의 Google 계정으로 다른 크롬에 동기화 | 개발자에게는 보내지 않음 |
+
+### Safari판 (맥 앱 「AI 자막 번역」, Mac App Store)
+Safari판도 위와 같고, 다른 점만 적습니다.
+- **API 키 · 외부 AI 동의**는 맥 앱 › 설정에서 넣고, 이 맥의 키체인(앱과 확장만 읽는 공유 그룹)에 둡니다. 엔진마다 처음 저장할 때 무엇이 어디로 가는지 보여 드리고 **동의를 받은 뒤에만** 그 회사로 자막 글을 보냅니다. 동의는 설정 › 정보에서 언제든 거둘 수 있습니다.
+- **맥 번역**(Apple Translation)은 이 맥 안에서 번역합니다. Apple 은 번역 기능 사용 통계(앱 번들 ID · 언어)를 모을 수 있지만 원문 · 번역문은 포함하지 않습니다(Apple 문서).
+- 음성 번역은 없습니다(탭 소리를 받지 않음). 영상을 내려받거나 저장하지 않습니다.
+- 설정 · 용어집 · 사용량은 Safari 확장 저장소에 두며 동기화되지 않습니다. 앱을 지우면 함께 지워집니다.
 
 ### 제3자
 - 자막 글을 보내는 Anthropic · Google 은 각 회사의 약관과 개인정보처리방침에 따라 처리합니다. 특히 Google AI Studio 무료 등급은 입력 · 출력이 Google 제품 개선에 쓰이고 사람이 검토할 수 있습니다. 회사 · 민감한 영상이면 각 회사의 정책을 확인해 주세요.
@@ -61,6 +68,13 @@
 | API keys (Anthropic, Google) | Local browser storage (`chrome.storage.local`, not synced) | Only to the provider that issued the key, when calling its API |
 | Glossary, usage records | Local browser storage | Not sent |
 | Settings (display, engine, caps, sites you added) | `chrome.storage.sync` — synced through your own Google account to your other Chrome browsers if Chrome sync is on | Never sent to the developer |
+
+### Safari version (Mac app "AI 자막 번역", Mac App Store)
+Same as above, except:
+- **API keys and consent to send to an external AI** are entered in the Mac app's Settings and kept in this Mac's keychain (a shared group only the app and its extension can read). For each engine, the first time you save a key the app shows what is sent where and **sends caption text to that provider only after you agree**. You can withdraw consent at any time in Settings › About.
+- **Mac translation** (Apple Translation) translates on this Mac. Apple may collect usage metrics (app bundle ID, languages) but not the original or translated text (Apple documentation).
+- No voice translation (tab audio is not captured). Videos are never downloaded or saved.
+- Settings, glossary and usage stay in Safari's extension storage and are not synced. Deleting the app deletes them.
 
 ### Third parties
 - Anthropic and Google process the caption text under their own terms and privacy policies. Note that on the Google AI Studio free tier, inputs and outputs may be used to improve Google products and may be reviewed by people. Check each provider's policy for work or sensitive content.

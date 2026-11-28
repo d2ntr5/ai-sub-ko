@@ -8,11 +8,14 @@
   window.__f1ko = true;
 
   const load = p => import(chrome.runtime.getURL(p));
-  const [SET, G, SEG, ERR, COST, SITES, VOD, LIS, GUARD] = await Promise.all([
+  const [SET, G, SEG, ERR, COST, SITES, VOD, LIS, GUARD, PF] = await Promise.all([
     load('lib/settings.js'), load('lib/glossary.js'), load('lib/segment.js'), load('lib/errors.js'),
-    load('lib/cost.js'), load('lib/sites.js'), load('lib/vod.js'), load('lib/listen.js'), load('lib/guard.js')
+    load('lib/cost.js'), load('lib/sites.js'), load('lib/vod.js'), load('lib/listen.js'), load('lib/guard.js'), load('lib/platform.js')
   ]);
-  const { normalize, pickEngine, hasKey, ENGINE_BADGE, ENGINE_NAMES } = SET;
+  const { normalize, pickEngine, hasKey } = SET;
+  // Safari판: 엔진 'chrome' 자리는 담는 맥 앱의 맥 번역 (lib/platform.js)
+  const brand = o => Object.fromEntries(Object.entries(o).map(([k, v]) => [k, PF.brandText(v)]));
+  const ENGINE_BADGE = brand(SET.ENGINE_BADGE), ENGINE_NAMES = brand(SET.ENGINE_NAMES);
   const OS = LIS.osOf(navigator); // 윈도우면 ⌥ · ⌘ 표기를 Alt · Ctrl 로 (1.0.32)
 
   const POLL_MS = 200;
@@ -293,7 +296,7 @@
     // 중요한 안내가 떠 있는 동안에는 덜 중요한 글도, 덜 중요한 지우기('')도 덮지 않는다
     if (!important && Date.now() < (showMsg._until || 0)) return;
     showMsg._until = important && html ? Date.now() + (ms || 8000) : 0;
-    msg.innerHTML = LIS.keyText(html, OS);
+    msg.innerHTML = PF.brandText(LIS.keyText(html, OS));
     msg.style.display = html ? 'block' : 'none';
     clearTimeout(showMsg._t);
     if (html && ms) showMsg._t = setTimeout(() => (msg.style.display = 'none'), ms);
@@ -392,7 +395,7 @@
     btn.textContent = e ? ENGINE_BADGE[e] : 'AI 번역·멈춤'; // 켜져 있는데 쓸 엔진이 없음 (키 오류 + 대신 번역 꺼짐 등)
     btn.className = e ? `on ${e}` : '';
     btn.style.display = on ? '' : 'none'; // 꺼져 있으면 버튼을 숨긴다 (켜기: ⌥K · 툴바 팝업)
-    btn.title = LIS.keyText(`${on ? `AI 번역 · 엔진: ${ENGINE_NAMES[e] || '멈춤'}` : '꺼짐'} · ⌥K 켜기/끄기 · ⌥O 원문 · ⌥L 음성 번역`, OS);
+    btn.title = LIS.keyText(`${on ? `AI 번역 · 엔진: ${ENGINE_NAMES[e] || '멈춤'}` : '꺼짐'} · ⌥K 켜기/끄기 · ⌥O 원문${PF.SAFARI ? '' : ' · ⌥L 음성 번역'}`, OS);
   }
 
   function blockText() {
@@ -431,6 +434,7 @@
   /** 크롬 내장 번역을 지금 바로 쓸 수 있는지 (모델 받음) — 묻기만 하고 받지는 않음 */
   async function chromeReady(src = srcLang()) {
     if (S.chromeTr[src]) return true;
+    if (PF.SAFARI) { try { return PF.macState(await chrome.runtime.sendMessage({ type: 'f1ko-mac-state', src })) === 'available'; } catch { return false; } }
     try { return 'Translator' in self && (await Translator.availability({ sourceLanguage: src, targetLanguage: 'ko' })) === 'available'; } catch { return false; }
   }
 
@@ -458,6 +462,11 @@
     const r = await chrome.runtime.sendMessage({ type: 'f1ko-chrome-translate', text, src });
     if (r?.ok) return r.text;
     const warned = (S.modelWarned ||= {});
+    if (PF.SAFARI) {
+      // Safari판: 맥 번역 (담는 맥 앱). 언어를 안 받았거나 앱과 연결이 안 되면 한 번 알림
+      if (!warned[src]) { warned[src] = true; showMsg(PF.MAC_TEXT[PF.macState(r)] || PF.MAC_TEXT.noapp, 8000, true); }
+      throw new Error('맥 번역 불가');
+    }
     if (!warned[src] && r?.state && r.state !== 'error') {
       warned[src] = true;
       const what = src === 'ja' ? '일본어 → 한국어 크롬 번역 모델' : '크롬 번역 모델';
@@ -473,7 +482,7 @@
     const src = srcLang();
     const t0 = performance.now();
     let raw;
-    if (S.listen) raw = await translateChromeViaExtension(text, src);
+    if (S.listen || PF.SAFARI) raw = await translateChromeViaExtension(text, src);
     else {
       if (!(await ensureChromeTranslator(src, quiet))) throw new Error('크롬 번역 불가');
       raw = await S.chromeTr[src].translate(text);
@@ -989,7 +998,7 @@
 
   /** 사이트 자막이 없을 때 (또는 늘 소리로): 쓸 수 있으면 ⌥L 을 권하고, 못 쓰면 그 이유를 */
   async function suggestListen(lead = noCaptionHint()) {
-    if (S.listenAsked || S.listen) return;
+    if (S.listenAsked || S.listen || PF.SAFARI) return; // Safari판은 음성 번역 없음
     S.listenAsked = true;
     let r = null;
     try { r = await chrome.runtime.sendMessage({ type: 'f1ko-listen-support' }); } catch { return; }

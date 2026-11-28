@@ -1,5 +1,6 @@
 import { normalize, GEMINI_LIMITS, pickEngine, hasKey } from './lib/settings.js';
 import { modelState, downloadModel, MODEL_TEXT } from './lib/translator.js';
+import { SAFARI, watchBrand } from './lib/platform.js';
 import { BUILTIN_SITES, siteFor, originPattern } from './lib/sites.js';
 import { packName } from './lib/glossary.js';
 import { dayKey, costUsd, ptDayKey } from './lib/cost.js';
@@ -152,7 +153,11 @@ $('engine').addEventListener('click', e => {
   if (v) setOverride(v);
 });
 $('engineReset').addEventListener('click', () => setOverride(null));
-$('keyLink').addEventListener('click', e => { e.preventDefault(); chrome.runtime.openOptionsPage(); });
+$('keyLink').addEventListener('click', e => {
+  e.preventDefault();
+  if (SAFARI) chrome.runtime.sendMessage({ type: 'f1ko-open-app', page: 'engine' }); // Safari판: 키는 맥 앱 › 설정
+  else chrome.runtime.openOptionsPage();
+});
 $('chromeFallback').addEventListener('change', e => save({ chromeFallback: e.target.checked }));
 
 // ===== 크롬 번역 모델 =====
@@ -168,6 +173,7 @@ async function refreshModel() {
   $('modelWarn').hidden = model === 'available';
   $('modelText').textContent = (modelSrc === 'ja' && model !== 'unsupported' ? '일본어 → 한국어 · ' : '') + (MODEL_TEXT[model] || '');
   $('modelDl').hidden = !['downloadable', 'downloading'].includes(model);
+  if (SAFARI) $('modelDl').textContent = '앱에서 받기';
   renderEngine();
 }
 $('modelDl').addEventListener('click', async () => {
@@ -417,13 +423,16 @@ $('pick').addEventListener('click', async () => {
   }
 });
 
+document.documentElement.classList.toggle('safari', SAFARI);
+if (SAFARI) $('keyLink').textContent = 'AI 자막 번역 앱 › 설정에서 키 넣기';
 watchKeys(document.body);
+watchBrand(document.body);
 
 (async () => {
   cfg = normalize(await chrome.storage.sync.get(null));
   const { enabled = false } = await chrome.storage.local.get('enabled');
   $('enabled').checked = enabled;
-  $('ver').textContent = `v${chrome.runtime.getManifest().version} · macOS · Windows`;
+  $('ver').textContent = `v${chrome.runtime.getManifest().version} · ${SAFARI ? 'Safari · macOS' : 'macOS · Windows'}`;
   [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
   const o = tab?.url ? originPattern(tab.url) : null;
   if (o && cfg.customSites.includes(o.host)) customGranted = await chrome.permissions.contains({ origins: [o.pattern] }).catch(() => true);
