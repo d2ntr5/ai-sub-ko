@@ -32,12 +32,7 @@ targets:
   AISubKoExtension:
     type: app-extension
     platform: macOS
-    sources:
-      - Extension
-      - Shared
-      - path: build/ext/Resources
-        type: folder
-        buildPhase: resources
+    sources: [Extension, Shared]   # 확장 파일(manifest.json …)은 safari.sh 가 appex/Contents/Resources 에 바로 복사
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: io.github.d2ntr5.ai-sub-ko.extension
