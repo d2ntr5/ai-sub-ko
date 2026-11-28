@@ -124,13 +124,16 @@ def main():
         else:
             ok((status, body), "판매 국가: 대한민국만")
 
-    # 연령 등급: 모든 항목 없음 (필드가 바뀌면 웹에서 확인)
+    # 연령 등급: 모든 항목 없음 (2026-11-29 이 목록으로 넣어 됨. 덮어쓰기 필드는 건드리지 않음)
     st, ar = call("GET", f"/v1/appInfos/{info['id']}/ageRatingDeclaration")
     if st < 400 and ar.get("data"):
-        a = ar["data"]["attributes"]
-        none = {k: ("NONE" if isinstance(v, str) and v in ("NONE", "INFREQUENT_OR_MILD", "FREQUENT_OR_INTENSE", "INFREQUENT", "FREQUENT_OR_INTENSE") else (False if isinstance(v, bool) else v)) for k, v in a.items()}
-        none = {k: v for k, v in none.items() if v is not None}
-        s2, b2 = call("PATCH", f"/v1/ageRatingDeclarations/{ar['data']['id']}", {"data": {"type": "ageRatingDeclarations", "id": ar["data"]["id"], "attributes": none}})
+        levels = ["alcoholTobaccoOrDrugUseOrReferences", "contests", "gamblingSimulated", "gunsOrOtherWeapons", "medicalOrTreatmentInformation",
+                  "profanityOrCrudeHumor", "sexualContentGraphicAndNudity", "sexualContentOrNudity", "horrorOrFearThemes", "matureOrSuggestiveThemes",
+                  "violenceCartoonOrFantasy", "violenceRealisticProlongedGraphicOrSadistic", "violenceRealistic"]
+        flags = ["advertising", "gambling", "lootBox", "messagingAndChat", "parentalControls", "ageAssurance", "unrestrictedWebAccess",
+                 "userGeneratedContent", "healthOrWellnessTopics", "datingAndRelationships", "sharedLocation", "socialMedia", "socialMediaAgeRestricted"]
+        attrs = {**{k: "NONE" for k in levels}, **{k: False for k in flags}}
+        s2, b2 = call("PATCH", f"/v1/ageRatingDeclarations/{ar['data']['id']}", {"data": {"type": "ageRatingDeclarations", "id": ar["data"]["id"], "attributes": attrs}})
         print("연령 등급: 됨" if s2 < 400 else f"연령 등급: 실패 {s2} {json.dumps(b2.get('errors'), ensure_ascii=False)[:300]} (웹에서)")
 
     # 심사 메모(연락처는 총괄이 웹에서).
