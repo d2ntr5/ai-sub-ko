@@ -52,6 +52,7 @@ xcodebuild -project "$HERE/AISubKo.xcodeproj" -scheme AISubKo -configuration Rel
   AISUBKO_KEYCHAIN_GROUP="$GROUP" AISUBKO_URL_SCHEME="$SCHEME" -quiet build
 SRC_APP="$DD/Build/Products/Release/AISubKo.app"
 APP="$OUT/$NAME.app"
+[ "$MODE" = build ] && [ -d "$APP" ] && { rm -rf "$OUT/check-keep.app"; mv "$APP" "$OUT/check-keep.app"; }
 rm -rf "$APP"; ditto "$SRC_APP" "$APP"
 APPEX="$APP/Contents/PlugIns/AISubKoExtension.appex"
 # 확장 파일은 Resources 바로 밑에 (manifest.json 이 없으면 Safari 가 못 읽고 App Store 가 90850 으로 거부)
@@ -66,7 +67,12 @@ if [ "$MODE" != pkg ] && [ "$MODE" != upload ]; then
   done
 fi
 lipo -info "$APP/Contents/MacOS/AISubKo"
-if [ "$MODE" = build ]; then echo "Built $APP (서명 없음)"; exit 0; fi
+if [ "$MODE" = build ]; then
+  # 서명 없는 빌드가 시험 중인 Check 빌드를 덮어쓰지 않게 이름을 바꿔 둔다 (2026-11-29 한 번 덮어씀)
+  rm -rf "$OUT/AISubKo Unsigned.app"; mv "$APP" "$OUT/AISubKo Unsigned.app"
+  [ -d "$OUT/check-keep.app" ] && mv "$OUT/check-keep.app" "$APP"
+  echo "Built $OUT/AISubKo Unsigned.app (서명 없음)"; exit 0
+fi
 
 echo "== 서명"
 KC_DIR=$(mktemp -d); KC="$KC_DIR/mas.keychain-db"; KC_PASS=$(uuidgen)

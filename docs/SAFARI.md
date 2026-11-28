@@ -29,7 +29,7 @@
 ## 4. 만들기
 | 명령 | 결과 | 번들 ID |
 |---|---|---|
-| `bash safari/scripts/safari.sh build 1.0.0` | 서명 없이 컴파일 | — |
+| `bash safari/scripts/safari.sh build 1.0.0` | 서명 없이 컴파일 → `safari/build/AISubKo Unsigned.app` (Check 빌드는 그대로 둠) | — |
 | `bash safari/scripts/safari.sh check 1.0.0` | `safari/build/AI 자막 번역 Check.app`, Apple Development 서명 | `io.github.d2ntr5.ai-sub-ko.check` (+ `.extension`) |
 | `bash safari/scripts/safari.sh pkg 1.0.0` | `safari/build/AISubKo-1.0.0.pkg` | `io.github.d2ntr5.ai-sub-ko` (+ `.extension`) |
 | `bash safari/scripts/safari.sh upload 1.0.0` | pkg + altool 확인 · 올리기 | 〃 |
