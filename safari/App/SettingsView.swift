@@ -261,6 +261,7 @@ struct AboutTab: View {
                 Link("개인정보 처리방침", destination: URL(string: "https://github.com/d2ntr5/ai-sub-ko/blob/main/PRIVACY.md")!)
                 Link("소스 (MIT)", destination: URL(string: "https://github.com/d2ntr5/ai-sub-ko")!)
             }.font(.system(size: 11.5))
+            Text("© 2026 d2ntr5").font(.system(size: 11.5)).foregroundStyle(.secondary)  // app-standards/update-and-about.md 2장 6번
             Spacer()
         }
         .padding(20).frame(height: 360)
