@@ -27,7 +27,7 @@ BUILD=$(( $(git rev-list --count HEAD) + 100 ))
 case "$MODE" in
   check|build) BASE=io.github.d2ntr5.ai-sub-ko.check; NAME="AI 자막 번역 Check"; SCHEME=aisubko-check
                P12=development; PROF_APP=ai-sub-ko-check-development; PROF_EXT=ai-sub-ko-check-extension-development ;;
-  *)           BASE=io.github.d2ntr5.ai-sub-ko; NAME="AI 자막 번역"; SCHEME=aisubko
+  *)           BASE=io.github.d2ntr5.ai-sub-ko; NAME="AISubKo"; SCHEME=aisubko
                P12=mac-app-distribution; PROF_APP=ai-sub-ko-appstore; PROF_EXT=ai-sub-ko-extension-appstore ;;
 esac
 TEAM=$(security cms -D -i "$SIGNING/$PROF_APP.provisionprofile" 2>/dev/null | plutil -extract TeamIdentifier.0 raw -o - - 2>/dev/null || true)
@@ -54,6 +54,10 @@ SRC_APP="$DD/Build/Products/Release/AISubKo.app"
 APP="$OUT/$NAME.app"
 rm -rf "$APP"; ditto "$SRC_APP" "$APP"
 APPEX="$APP/Contents/PlugIns/AISubKoExtension.appex"
+# 확장 파일은 Resources 바로 밑에 (manifest.json 이 없으면 Safari 가 못 읽고 App Store 가 90850 으로 거부)
+mkdir -p "$APPEX/Contents/Resources"
+ditto "$EXT" "$APPEX/Contents/Resources"
+[ -f "$APPEX/Contents/Resources/manifest.json" ] || { echo "appex 에 manifest.json 이 없습니다." >&2; exit 1; }
 /usr/libexec/PlistBuddy -c "Set :CFBundleIdentifier $BASE" "$APP/Contents/Info.plist"
 /usr/libexec/PlistBuddy -c "Set :CFBundleIdentifier $BASE.extension" "$APPEX/Contents/Info.plist"
 if [ "$MODE" != pkg ] && [ "$MODE" != upload ]; then
@@ -87,6 +91,9 @@ ent safari/Extension/Extension.entitlements "$BASE.extension" "$KC_DIR/ext.entit
 ent safari/App/App.entitlements "$BASE" "$KC_DIR/app.entitlements"
 cp "$SIGNING/$PROF_EXT.provisionprofile" "$APPEX/Contents/embedded.provisionprofile"
 cp "$SIGNING/$PROF_APP.provisionprofile" "$APP/Contents/embedded.provisionprofile"
+chmod 644 "$APPEX/Contents/embedded.provisionprofile" "$APP/Contents/embedded.provisionprofile"
+# 확장 속성이 남으면 pkg 안에 ._ 파일이 생겨 App Store 가 「Invalid product archive」(90229)로 거부 (2026-11-29)
+xattr -cr "$APP"
 codesign --force --sign "$SIGN_ID" --keychain "$KC" --entitlements "$KC_DIR/ext.entitlements" --options runtime --timestamp=none "$APPEX"
 codesign --force --sign "$SIGN_ID" --keychain "$KC" --entitlements "$KC_DIR/app.entitlements" --options runtime --timestamp=none "$APP"
 codesign --verify --deep --strict --verbose=2 "$APP"
@@ -97,7 +104,7 @@ echo "== pkg"
 PKG="$OUT/AISubKo-$VERSION.pkg"
 INST_ID=$(identity "Mac Installer Distribution" basic); [ -n "$INST_ID" ] || INST_ID=$(identity "3rd Party Mac Developer Installer" basic)
 [ -n "$INST_ID" ] || { echo "Mac Installer Distribution 인증서가 없습니다." >&2; exit 1; }
-productbuild --component "$APP" /Applications --sign "$INST_ID" --keychain "$KC" "$PKG"
+COPYFILE_DISABLE=1 productbuild --component "$APP" /Applications --sign "$INST_ID" --keychain "$KC" "$PKG"
 pkgutil --check-signature "$PKG" | head -3
 echo "Built $PKG"
 [ "$MODE" = upload ] || exit 0
