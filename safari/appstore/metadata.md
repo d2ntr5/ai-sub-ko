@@ -50,7 +50,7 @@ F1 · 클라우드 · AI · 개발 · 영화 · 드라마 묶음으로 이름과
 ```
 This app contains a Safari web extension that shows Korean subtitles over videos by translating the site's own English captions.
 
-How to review without any API key (macOS 26 or later):
+How to review without any API key — this key-free demo needs macOS 26 or later (on-device translation without a window uses TranslationSession(installedSource:target:), available from macOS 26; on macOS 15–25 the app still works with the user's own Claude or Gemini key):
 1. Open the app and click "Safari에서 켜기" (Turn on in Safari), then enable "AI 자막 번역" in Safari Settings > Extensions.
 2. In Safari, open https://www.youtube.com/watch?v=UF8uR6Z6KLc (it has English captions; the Help window has a "데모 영상 열기" link).
 3. Turn on the player's captions (CC, English). Click the toolbar button "KO" and allow access to youtube.com when Safari asks.
