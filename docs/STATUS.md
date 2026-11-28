@@ -11,11 +11,10 @@
 - 마지막 스토어 제출(1.0.28) 이후 쌓인 바뀐 점: 1.0.29 · 1.0.30 · 1.0.31 · 1.0.32 (`CHANGELOG.md`). 1.0.32 는 manifest 짧은 설명과 `store/listing.md` 자세한 설명(맥 · 윈도우)도 바뀌었다 — 스토어에 올릴 때 대시보드 설명 글도 같이 바꿔야 한다. 스토어에 올릴 누적 최종 버전은 사용자가 정한다.
 
 ## 진행 중인 일
-- **Safari판 1.0.0 (Mac App Store)** — 사용자 「진행」(2026-11-29, 총괄 전달, 시안대로 · 정할 것은 추천대로. 시안은 총괄 · 이 세션이 가진 비공개 링크). 설명 `docs/SAFARI.md`, PR #42(`feat/safari`).
-  - 됨: 확장 Safari 갈래(`lib/platform.js`), 맥 앱 · 앱 확장(`safari/`), 번들 ID 4개 · 프로파일 4개(API), check · pkg 서명, 자체 점검(키체인 공유 그룹 · 맥 번역) 통과, 스크린샷 4장, 정보 · 심사 메모(`safari/appstore/metadata.md`), `PRIVACY.md` Safari판.
-  - 기다림: App Store Connect 앱 레코드 · 앱 개인정보(총괄이 웹에서) · 맥 시험 세션의 실제 Safari 시험(`docs/TESTING.md` 2장).
-  - 그 뒤: PR 머지 → `bash safari/scripts/safari.sh upload 1.0.0` → `appstore_meta.py 1.0.0 --build` → 총괄에 「제출 직전 점검표」. **심사 제출은 사용자 승인 뒤.** 크롬판은 그대로.
-  - 알아 둘 것: 화면 없이 번역하는 `TranslationSession(installedSource:)` 은 macOS 26+ → 최소 macOS 15 는 지키고 15~25 에서는 맥 번역만 안 됨(총괄에 알림).
+- **Safari판 1.0.0 (Mac App Store)** — 사용자 「진행」(2026-11-29, 총괄 전달). 설명 `docs/SAFARI.md`.
+  - App Store Connect 앱 6840364960, 버전 1.0.0 에 빌드 198 붙음, 정보 · 스크린샷 · 가격(무료) · 한국만 · 연령 · 심사 메모 · 연락처 · 앱 개인정보 모두 들어감. 맥 시험 통과 8 · 실패 0 · 확인 못 함 1.
+  - **심사 제출만 남음 — 사용자 승인 뒤**(사용자 원문 「스토어에 등록은 내 승인 후에」, 총괄 정정). 점검표 `docs/SAFARI.md` 9장.
+  - 다음 Safari판 후보: `docs/SAFARI.md` 8장(MAIN world 미리 번역 안 됨 · 스페인어 CC · 설정 탭).
 
 ## 사용자 답을 기다리는 것
 - **음성 번역 사용자 문의 (2026-11-17)**: 맥 · YouTube 영어 방송 · 「자막이 안떠」 · Claude 키 없음. 1.0.30 · 1.0.31 로 고침. 문의자에게 물을 것(영상 주소, 「음성 번역 시작」을 눌렀는지, 단추 아래 글, 팝업 「진단 복사」 결과)은 총괄로 보냈고 답은 아직 없음.
