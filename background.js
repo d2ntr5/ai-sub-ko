@@ -7,6 +7,7 @@ import { API_URL, MODELS_URL, PROMPT_TERMS_MAX, buildSystemPrompt, buildRequestB
 import { classify } from './lib/errors.js';
 import { dayKey, addUsage, emptyDay, overCap, pruneDays, ptDayKey, emptyGeminiDay } from './lib/cost.js';
 import { RateWindow, LruCache, cacheKey, CLAUDE_PER_MIN, SHARED_CACHE_MAX } from './lib/guard.js';
+import { SAFARI } from './lib/platform.js';
 import { GEMINI_BASE, geminiHeaders, buildBatchSystem, buildBatchBody, parseBatch, geminiUsage, classifyGemini, pickGeminiModels } from './lib/gemini.js';
 
 const TIMEOUT_MS = 5000;        // 자막은 늦으면 의미가 없다 → 5초 넘으면 대신 번역
@@ -16,9 +17,38 @@ const GEMINI_TEST_TIMEOUT_MS = 45000;
 
 const err = (code, msg) => Object.assign(new Error(msg || code), { code });
 
+// ===== Safari판: 담는 맥 앱의 앱 확장(SafariWebExtensionHandler)과 네이티브 메시지 =====
+// 키 · 외부 AI 동의는 맥 앱 › 설정에 있다 (앱 확장이 동의한 엔진의 키만 돌려준다). 맥 번역도 앱 확장이 한다.
+const NATIVE_APP = 'io.github.d2ntr5.ai-sub-ko'; // Safari 는 이 값을 보지 않고 담는 앱에만 보낸다
+async function native(msg, timeoutMs = 8000) {
+  const rt = (globalThis.browser ?? chrome).runtime;
+  if (typeof rt.sendNativeMessage !== 'function') return null;
+  let timer;
+  try {
+    return await Promise.race([
+      rt.sendNativeMessage(NATIVE_APP, msg),
+      new Promise(res => { timer = setTimeout(() => res(null), timeoutMs); })
+    ]);
+  } catch { return null; } finally { clearTimeout(timer); }
+}
+let nativeKeyCache = { at: 0, v: null };
+/** API 키: 크롬판은 확장 저장소, Safari판은 맥 앱 (15초 캐시, fresh 면 다시 물음) */
+async function apiKeys(fresh = false) {
+  if (!SAFARI) {
+    const { apiKey = '', geminiKey = '' } = await chrome.storage.local.get(['apiKey', 'geminiKey']);
+    return { apiKey, geminiKey };
+  }
+  if (!fresh && nativeKeyCache.v && Date.now() - nativeKeyCache.at < 15000) return nativeKeyCache.v;
+  const r = await native({ type: 'keys' });
+  const v = { apiKey: String(r?.claude || ''), geminiKey: String(r?.gemini || '') };
+  nativeKeyCache = { at: Date.now(), v };
+  return v;
+}
+
 async function getConfig() {
   const sync = normalize(await chrome.storage.sync.get(null));
-  const { apiKey = '', geminiKey = '', glossary, geminiModels = {} } = await chrome.storage.local.get(['apiKey', 'geminiKey', 'glossary', 'geminiModels']);
+  const { glossary, geminiModels = {} } = await chrome.storage.local.get(['glossary', 'geminiModels']);
+  const { apiKey, geminiKey } = await apiKeys();
   return {
     ...sync, apiKey, geminiKey,
     glossary: glossary ? sanitizeGlossary(glossary) : DEFAULT_GLOSSARY,
@@ -277,6 +307,7 @@ async function closeOffscreenIfIdle() {
 
 /** 이 크롬 · 이 언어로 쓸 수 있는지 (offscreen 에서 검사 — 서비스 워커에는 음성 인식이 없다) */
 async function listenSupport(lang) {
+  if (SAFARI) return { ok: false, reason: 'off' }; // Safari판은 음성 번역 없음 (tabCapture · offscreen 없음)
   const cfg = normalize(await chrome.storage.sync.get(null));
   if (cfg.listenWhen === 'off') return { ok: false, reason: 'off' };
   await ensureOffscreen();
@@ -337,7 +368,7 @@ async function listenStop(tabId, reason = 'user') {
 }
 
 /** ⌥L: 쓸 수 있으면 시작 · 멈추기, 못 쓰면 시작하지 않고 같은 이유를 자막 자리에 */
-chrome.commands.onCommand.addListener(async (command, tab) => {
+chrome.commands?.onCommand?.addListener(async (command, tab) => {
   if (command !== 'listen-toggle' || !tab?.id) return;
   const cur = await listenState();
   if (cur?.tabId === tab.id) { await listenStop(tab.id); return; }
@@ -381,6 +412,10 @@ const handlers = {
 
   /** 음성 번역 중 크롬 내장 번역 (offscreen 에서 — 확장 출처의 번역 모델) */
   async 'f1ko-chrome-translate'(msg) {
+    if (SAFARI) {
+      const r = await native({ type: 'translate', text: String(msg.text || ''), src: msg.src === 'ja' ? 'ja' : 'en' }, 10000);
+      return r?.ok ? { ok: true, text: String(r.text || '') } : { ok: false, state: r?.state || 'noapp', error: r?.error };
+    }
     if (!(await chrome.offscreen.hasDocument())) return { ok: false, state: 'no-offscreen' };
     const r = await chrome.runtime.sendMessage({ type: 'off-translate', text: String(msg.text || ''), src: msg.src }).catch(e => ({ ok: false, state: 'error', error: e.message }));
     return r || { ok: false, state: 'error' };
@@ -426,8 +461,22 @@ const handlers = {
   },
 
   async 'f1ko-keys'() {
-    const { apiKey = '', geminiKey = '' } = await chrome.storage.local.get(['apiKey', 'geminiKey']);
+    const { apiKey, geminiKey } = await apiKeys(true);
     return { ok: true, claude: !!apiKey, gemini: !!geminiKey };
+  },
+
+  /** Safari판: 맥 번역 언어 상태 (installed · supported · unsupported, 앱이 없으면 null) */
+  async 'f1ko-mac-state'(msg) {
+    if (!SAFARI) return { ok: false, state: 'unsupported' };
+    const r = await native({ type: 'state', src: msg.src === 'ja' ? 'ja' : 'en' });
+    return { ok: !!r, state: r?.state || 'noapp' };
+  },
+
+  /** Safari판: 담는 맥 앱 열기 (설정 › 엔진 등) — 확장 페이지에서만 */
+  async 'f1ko-open-app'(msg) {
+    if (!SAFARI) return { ok: false };
+    const r = await native({ type: 'open', page: String(msg.page || 'settings') });
+    return { ok: !!r?.ok };
   },
 
   async 'f1ko-count'(msg) {
@@ -492,7 +541,7 @@ const handlers = {
 
 // 콘텐츠 스크립트(사이트 페이지 안)가 보낼 수 있는 것. 사이트 추가 · 연결 테스트(키를 받음) · 음성 번역 시작 · offscreen 전달은
 // 확장 페이지(팝업 · 상세 설정 · offscreen)에서만 — 페이지가 뚫려도 이 명령으로 설정을 바꾸거나 다른 탭에 글을 넣지 못하게 (1.0.27)
-const FROM_CONTENT = new Set(['f1ko-translate', 'f1ko-batch', 'f1ko-keys', 'f1ko-count', 'f1ko-chrome-translate',
+const FROM_CONTENT = new Set(['f1ko-translate', 'f1ko-batch', 'f1ko-keys', 'f1ko-count', 'f1ko-chrome-translate', 'f1ko-mac-state',
   'f1ko-listen-support', 'f1ko-listen-state', 'f1ko-listen-stop', 'f1ko-open-options']);
 const isExtensionPage = sender => String(sender?.url || '').startsWith(chrome.runtime.getURL(''));
 
@@ -534,6 +583,6 @@ chrome.runtime.onStartup.addListener(() => { restoreSites(); });
 
 // 처음 설치하면 상세 설정(API 키 넣기)부터
 chrome.runtime.onInstalled.addListener(({ reason }) => {
-  if (reason === 'install') chrome.runtime.openOptionsPage();
+  if (reason === 'install' && !SAFARI) chrome.runtime.openOptionsPage(); // Safari판은 맥 앱이 첫 화면
   restoreSites();
 });

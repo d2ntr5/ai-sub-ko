@@ -78,3 +78,8 @@ footer .muted { margin-left: auto; white-space: nowrap; }
 
 /* 생성형 AI 사전 고지 (인공지능기본법 제31조 ①, 1.0.28) — 늘 보임 */
 .ai-notice { margin: 6px 0 0; padding: 7px 10px; border: 1px solid var(--line, rgba(127,127,127,.3)); border-radius: 8px; font-size: 11.5px; line-height: 1.5; color: var(--fg, inherit); background: color-mix(in srgb, var(--muted, #888) 10%, transparent); }
+
+/* Safari판 (lib/platform.js): 크롬에만 있는 것 · Safari 에만 있는 것 */
+.safari-only { display: none !important; }
+html.safari .safari-only { display: revert !important; }
+html.safari .chrome-only { display: none !important; }
